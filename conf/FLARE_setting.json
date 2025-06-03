@@ -1,0 +1,12 @@
+{
+    "label": "sample_replicate_edittype",
+    "output_folder": "path/7-FLARE_for_MAPIT/sample/edittype/",
+    "stamp_sites_file": "path/6.1-Edit_bedgraphs/sample/sample_replicate.combined.edittype.snpfiltered.ranked.score0.X.bed",
+    "forward_bw": "path/3.1-Split_strand/sample/sample_replicate.fwd.sorted.bw",
+    "reverse_bw": "path/3.1-Split_strand/sample/sample_replicate.rev.sorted.bw",
+    "fasta": "genome.fa",
+    "regions": "FLARE_regions",
+    "edit_type": "edittype",
+    "bam": "path/3.1-Split_strand/sample/sample_replicate.bam",
+    "keep_all": false
+}

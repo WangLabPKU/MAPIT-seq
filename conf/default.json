@@ -1,0 +1,22 @@
+{
+    "genome": {
+        "version": "GRCh38",
+        "fasta": "/wanglab1/gangx/data/Reference/9606/GRCh38.p13/GRCh38.p13.genome.fa",
+        "abundantRNA": "/wanglab1/gangx/data/Reference/9606/GRCh38.p13/AbundantRNA/human_rRNA_tRNA_mtRNA.fa",
+        "bwaIndex": "/wanglab1/gangx/data/Reference/9606/GRCh38.p13/GRCh38.p13.genome.fa",
+        "hisat2Index": "/wanglab1/gangx/data/Reference/9606/GRCh38.p13/GRCh38.p13.genome.fa",
+        "gatkIndex": "/wanglab1/gangx/data/Reference/9606/GRCh38.p13/GRCh38.p13.genome.dict",
+        "ERCCIndex": "/wanglab1/gangx/data2/SM/ref/ERCC_Controls.fa"
+    },
+    "SNP":{
+        "dbSNPAll": "/wanglab1/gangx/data/Reference/9606/GRCh38.p13/GRCh38_SNP/dbSNP_all_SNP.vcf",
+        "dbSNPSplit": "/wanglab1/gangx/data/Reference/9606/GRCh38.p13/GRCh38_SNP/dbSNP_split_chr",
+        "1000GenomeSplit": "/wanglab1/gangx/data/Reference/9606/GRCh38.p13/GRCh38_SNP/1000genomes_split_chr",
+        "EVSEVASplit": "/wanglab1/gangx/data/Reference/9606/GRCh38.p13/GRCh38_SNP/EVS_split_chr"
+    },
+    "annotation":{
+        "spliceSites": "/wanglab1/gangx/data/Reference/9606/GRCh38.p13/gencode.v40.chr_patch_hapl_scaff.annotation_all_spsites.bed",
+        "gff3": "/wanglab1/gangx/data/Reference/9606/GRCh38.p13/gencode.v40.chr_patch_hapl_scaff.annotation.gff3",
+        "repeatMask": "/wanglab1/gangx/data/Reference/9606/GRCh38.p13/UCSC_RepeatMask_All_repetitive.bed"
+    }
+}

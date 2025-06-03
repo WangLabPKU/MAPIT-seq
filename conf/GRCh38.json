@@ -1,0 +1,22 @@
+{
+    "genome": {
+        "version": "GRCh38",
+        "fasta": "/home/gangx/data/Reference/GRCh38/GRCh38.p13.genome.pri.fa",
+        "abundantRNA": "/home/gangx/data/Reference/GRCh38/AbundantRNA/human_rRNA_tRNA_mtRNA.fa",
+        "bwaIndex": "/home/gangx/data/Reference/GRCh38/GRCh38.p13.genome.pri.fa",
+        "hisat2Index": "/home/gangx/data/Reference/GRCh38/GRCh38.p13.genome.pri.fa",
+        "gatkIndex": "/home/gangx/data/Reference/GRCh38/GRCh38.p13.genome.pri.dict",
+        "ERCCIndex": "/home/gangx/data/Reference/ERCC/ERCC_Controls.fa"
+    },
+    "SNP": {
+        "dbSNPAll": "/home/gangx/data/Reference/GRCh38/SNP/dbSNP_all_SNP.vcf",
+        "dbSNPSplit": "/home/gangx/data/Reference/GRCh38/SNP/dbSNP_split_chr",
+        "1000GenomeSplit": "/home/gangx/data/Reference/GRCh38/SNP/1000genomes_split_chr",
+        "EVSEVASplit": "/home/gangx/data/Reference/GRCh38/SNP/EVS_split_chr"
+    },
+    "annotation": {
+        "spliceSites": "/home/gangx/data/Reference/GRCh38/gencode.v40.pri.annotation_all_spsites.bed",
+        "gff3": "/home/gangx/data/Reference/GRCh38/gencode.v40.pri.annotation.gff3",
+        "repeatMask": "/home/gangx/data/Reference/GRCh38/UCSC_RepeatMask_All_repetitive.bed"
+    }
+}

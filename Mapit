@@ -1,0 +1,692 @@
+#!/usr/bin/env python
+import pandas as pd
+import numpy as np
+import subprocess
+import os
+import sys
+import re
+import time
+import argparse
+import json
+import pybedtools
+import scipy.stats as stats
+
+script_path=sys.argv[0]
+Mapit_dir=os.path.dirname(script_path)
+
+def argsPrint(args):
+    width=max([15]+[len(str(vars(args)[k])) for k in list(vars(args).keys())[:-1]])
+    print(format("//"+"="*13, '<'), "MAPIT-seq Pipeline",format("="*(width-2)+"\\\\", '<'))
+    print(format("||", '<2'), format("subcommand", '>20'),": ", format('\033[34m'+sys.argv[1]+'\033[0m', '<%d'%(width+14)), format("||", '<2'))
+    for arg in list(vars(args).keys())[:-1]:
+        print(format("||", '<2'), format(arg, '>20'),": ", format('\033[34m'+str(getattr(args, arg))+'\033[0m', '<%d'%(width+14)), format("||", '<2'))
+    print(format("\\\\"+"="*(20+width+11)+"//", '<'))
+
+def infoPrint(type,description):
+    colorType={"ERROR":"31","WARN":"33","INFO":"34"}
+    print("\033[%sm[%s]\033[32m\t%s\033[0m\t%s"%(colorType[type],type,time.asctime( time.localtime(time.time())),description))
+    if type=="ERROR":
+        exit(1)
+    
+def fileExistCheck(fileCheckList,confFile=""):
+    exit_signal=0
+    for file in fileCheckList:
+        if os.path.exists(file) and os.path.getsize(file)>0:
+            continue
+        elif confFile:
+            exit_signal=1
+            infoPrint("WARN","\033[34m%s\033[0m does not exist. Check \033[34m%s\033[0m or regenerate it."%(file,confFile))
+        else:
+            exit_signal=1
+            infoPrint("WARN","\033[34m%s\033[0m does not exist. Check it."%(file))
+    return exit_signal
+
+def loadConfig(genomeVersion):
+    confFile=Mapit_dir+'/conf/'+genomeVersion+'.json'
+    if os.path.exists(confFile):
+        with open(confFile) as f:
+            conf = json.load(f)
+            if genomeVersion != conf['genome']['version']:
+                infoPrint(type="WARN",description="Genome Version %s in %s does not match with file name."%(conf['genome']['version'],confFile))
+        fileCheckList=[]
+        for var in list(conf['genome'].values())[1:]+list(conf['SNP'].values())+list(conf['annotation'].values()):
+            fileCheckList.append(var)
+        for suffix in ["amb","ann","bwt","pac","sa"]:
+            for var in [conf['genome']['abundantRNA'],conf['genome']['bwaIndex']]:
+                fileCheckList.append(var+"."+suffix)
+        for suffix in range(1,9):
+            fileCheckList.append(conf['genome']['hisat2Index']+"."+str(suffix)+".ht2")
+        if fileExistCheck(fileCheckList):
+            infoPrint("ERROR","Lack of files.\nAborting")
+        infoPrint(type="INFO",description="Mapit-seq config file \033[34m%s\033[0m is loaded and has no error."%(confFile))
+        return conf
+    else:
+        infoPrint(type="ERROR",description="\033[34m%s\033[0m does not exist. Use 'Mapit config' to create. "%(confFile))
+
+
+def checkSoftware():
+    exit_signal=0
+    for s in ['bwa','hisat2','samtools','gatk','bedtools']:
+        if subprocess.check_output("command -v %s >/dev/null 2>&1 || echo -e -n 1"%(s),shell=True,text=True):
+            infoPrint("ERROR","\033[34m%s\033[0m is required but it's not installed or in your PATH."%(s))
+            exit_signal=1
+    if exit_signal:
+        infoPrint("ERROR","Lack of softwares.\nAborting")
+
+def shell(command,log=None):
+    if log:
+        out=open(log,'w')
+        ps=subprocess.Popen(command,shell=True,stdout=out,stderr=out)
+        signal=ps.wait()
+        out.close()
+    else:
+        ps=subprocess.Popen(command,shell=True)
+        signal=ps.wait()
+    if signal:
+        exit(1)
+    else:
+        #infoPrint("INFO","Shell$>> \033[34m%s\033[0m << done!"%(command))
+        time.sleep(5)
+
+def config(args):
+    checkSoftware()
+    confFile=Mapit_dir+'/conf/'+args.genomeVersion+'.json'
+    app_confFile=Mapit_dir+'/conf/software.json'
+    if ((os.path.exists(confFile))and(os.path.getsize(confFile)>0)and(args.overwrite==False)):
+        infoPrint("ERROR","%s exists. If you want to regenerate, add '--overwrite'.")
+    if fileExistCheck([os.path.abspath(args.genomeFasta),os.path.abspath(args.dbSNP),os.path.abspath(args.genomeAnno),args.rmsk,os.path.abspath(getattr(args, "1000Genomes")),os.path.abspath(getattr(args, "EVSEVA"))]):
+        infoPrint("ERROR","Wrong input. Files NOT Found.\nAborting")
+    if not ( (args.genomeAnno).endswith(".gff") or (args.genomeAnno).endswith(".gff3") ):
+        infoPrint("ERROR","%s may not be in GFF/GFF3 format."%(args.genomeAnno))
+    hisat2Index=args.hisat2Index if args.hisat2Index else args.genomeFasta
+    shell("%s/src/MAPIT-seq.sh Creating_conf %s %s %s %s %s %s %s %s "%(
+        Mapit_dir,args.genomeVersion,args.species,args.outpath,args.genomeFasta,args.genomeAnno,hisat2Index,args.dbSNP,args.rmsk,args.ERCC),
+          log=Mapit_dir+"/conf/"+args.genomeVersion+"_%s.log"%(format(time.strftime("%Y-%m-%d_%H:%M:%S"))))
+    df_seq=pd.read_csv(os.path.abspath(re.sub(r"\.gff[3]{0,1}","_exon_merge_seq.bed",args.genomeAnno)),sep='\t',header=None,names=['chrom','start','end','exonid:geneid','tt:gt','strand','length','cumsum','seq'])
+    df_seq['geneid']=df_seq['exonid:geneid'].apply(lambda x:x.split(":")[1].split(";")[0])
+    df_seq.sort_values(by=['chrom','end'],inplace=True,ascending=[True,True])
+    df_seq_pos=df_seq[df_seq['strand']=="+"].groupby('geneid').agg({"seq":"".join})
+    df_seq.sort_values(by=['chrom','end'],inplace=True,ascending=[True,False])
+    df_seq_neg=df_seq[df_seq['strand']=="-"].groupby('geneid').agg({"seq":"".join})
+    df_seq_concat=pd.concat([df_seq_pos,df_seq_neg],axis=0).reset_index()
+    df_seq_concat['geneid']=">"+df_seq_concat['geneid']
+    df_seq_concat.to_csv(os.path.abspath(re.sub(r"\.gff[3]{0,1}","_exon_merge_seq.fa",args.genomeAnno)),sep='\n',header=None,index=False)
+    os.system("rm %s"%(os.path.abspath(re.sub(r"\.gff[3]{0,1}","_exon_merge_seq.bed",args.genomeAnno))))
+    conf={
+        "genome": {
+            "version": args.genomeVersion,
+            "fasta": os.path.abspath(args.genomeFasta),
+            "abundantRNA": os.path.abspath(args.outpath+"/AbundantRNA/"+args.species+"_rRNA_tRNA_mtRNA.fa"),
+            "bwaIndex": os.path.abspath(args.genomeFasta),
+            "hisat2Index": os.path.abspath(hisat2Index),
+            "gatkIndex": os.path.abspath(re.sub(r"\.fa",".dict",args.genomeFasta)),
+            "ERCCIndex": os.path.abspath(args.ERCC)
+            },
+        "SNP": {
+            "dbSNPAll": os.path.abspath(args.dbSNP),
+            "dbSNPSplit": os.path.abspath(args.outpath+"/"+args.genomeVersion+"_SNP/dbSNP_split_chr"),
+            "1000GenomeSplit": os.path.abspath(getattr(args, "1000Genomes")),
+            "EVSEVASplit": os.path.abspath(getattr(args, "EVSEVA"))
+        },
+        "annotation": {
+            "spliceSites": os.path.abspath(re.sub(r"\.gff[3]{0,1}","_all_spsites.bed",args.genomeAnno)),
+            "gff3":  os.path.abspath(args.genomeAnno),
+            "repeatMask": os.path.abspath(args.outpath+"/UCSC_RepeatMask_All_repetitive.bed")
+        }
+    }
+    infoPrint("INFO","Writing config file to >> \033[34m%s\033[0m <<"%(confFile))
+    with open(confFile, 'w', encoding='utf-8') as f:
+        json.dump(conf, f, ensure_ascii=False, indent=4)
+    loadConfig(args.genomeVersion)
+    app_conf={
+        "Reditools":os.path.abspath(args.Reditools),
+        "FLARE":os.path.abspath(args.FLARE)
+    }
+    with open(app_confFile, 'w', encoding='utf-8') as f:
+        json.dump(app_conf, f, ensure_ascii=False, indent=4)
+
+def mapping(args):
+    checkSoftware()
+    conf = loadConfig(args.genomeVersion)
+    for d in ['0-Remove_rRNA','1-HISAT_map','2-BWA_map','3-Combine_bam']:
+        os.system("test -d %s || mkdir -p %s"%(args.outpath+"/"+d+"/",args.outpath+"/"+d+"/"))
+    if args.fq2:
+        if fileExistCheck([args.fq,args.fq2]):
+            infoPrint("ERROR","Wrong input.\nAborting")
+        shell("%s/src/MAPIT-seq.sh rRNA_deplete_HISAT2_BWA_mapping \
+            %s %d paired %s %s %s %s %s %s %s %s %s %s %s %s"%(
+                Mapit_dir, args.sampleName, args.replicate, args.fq, args.fq2, args.outpath, args.thread, args.rna_strandness,
+                conf['genome']['abundantRNA'],conf['annotation']['spliceSites'],conf['genome']['hisat2Index'],conf['genome']['bwaIndex'],conf['genome']['fasta'],
+                str(args.ERCC),conf['genome']['ERCCIndex']),
+            log=args.outpath+"/3-Combine_bam/"+args.sampleName+"_"+str(args.replicate)+"_Mapping.log")
+    else:
+        if fileExistCheck([args.fq]):
+            infoPrint("ERROR","Wrong input.\nAborting")
+        shell("%s/src/MAPIT-seq.sh rRNA_deplete_HISAT2_BWA_mapping \
+            %s %d single %s NA %s %s %s %s %s %s %s %s %s %s"%(
+                Mapit_dir, args.sampleName, args.replicate, args.fq, args.outpath, args.thread, args.rna_strandness,
+                conf['genome']['abundantRNA'],conf['annotation']['spliceSites'],conf['genome']['hisat2Index'],conf['genome']['bwaIndex'],conf['genome']['fasta'],
+                str(args.ERCC),conf['genome']['ERCCIndex']),
+            log=args.outpath+"/3-Combine_bam/"+args.sampleName+"_"+str(args.replicate)+"_Mapping.log")
+
+def finetuning(args):
+    BAMPrefix=os.path.abspath(args.outpath)+"/3-Combine_bam/"+args.sampleName+"/"+args.sampleName+"_"+str(args.replicate)+"_combine"
+    LogPrefix=os.path.abspath(args.outpath)+"/3-Combine_bam/"+args.sampleName+"/"+args.sampleName+"_"+str(args.replicate)+"_"
+    conf = loadConfig(args.genomeVersion)
+    if fileExistCheck([BAMPrefix+".bam"]):
+        infoPrint("ERROR","Check mapping for %s is already done or not.\nAborting"%(args.sampleName+"_"+str(args.replicate)))
+    elif os.path.exists("%s_dedupped.bam"%(BAMPrefix)) & os.path.exists("%s_dedupped.bai"%(BAMPrefix)) :
+            infoPrint("WARN","%s_dedupped.bam already exists."%(BAMPrefix))
+    else:
+        infoPrint("INFO","AddOrReplaceReadGroups for %s done! "%(args.sampleName+"_"+str(args.replicate)))
+        shell("picard MarkDuplicates -I %s.bam -O %s_dedupped.bam --CREATE_INDEX true --VALIDATION_STRINGENCY SILENT -M %s_MarkDuplicates_output.metrics --REMOVE_DUPLICATES true"%(BAMPrefix,BAMPrefix,BAMPrefix),
+              log=LogPrefix+"MarkDuplicates.log")
+    if fileExistCheck([BAMPrefix+"_dedupped.bam"]):
+        infoPrint("ERROR","Check MarkDuplicates for %s has something wrong or not.\nAborting"%(args.sampleName+"_"+str(args.replicate)))
+    else:
+        infoPrint("INFO","MarkDuplicates for %s done! "%(args.sampleName+"_"+str(args.replicate)))
+        shell("gatk SplitNCigarReads -R %s -I %s_dedupped.bam -O %s_dedupped_split.bam --tmp-dir $TMPDIR"%(conf['genome']['fasta'],BAMPrefix,BAMPrefix),
+              log=LogPrefix+"SplitNCigarReads.log")
+    if fileExistCheck([BAMPrefix+"_dedupped_split.bam"]):
+        infoPrint("ERROR","Check SplitNCigarReads for %s has something wrong or not.\nAborting"%(args.sampleName+"_"+str(args.replicate)))
+    else:
+        infoPrint("INFO","SplitNCigarReads for %s done! "%(args.sampleName+"_"+str(args.replicate)))
+        shell("gatk BaseRecalibrator -R %s -I %s_dedupped_split.bam --known-sites %s  -O %s_dedupped_split_recal_gatk4.grv "%(conf['genome']['fasta'],BAMPrefix,conf['SNP']['dbSNPAll'],BAMPrefix),
+              log=LogPrefix+"BaseRecalibrator.log")
+    if fileExistCheck([BAMPrefix+"_dedupped_split_recal_gatk4.grv"]):
+        infoPrint("ERROR","Check BaseRecalibrator for %s has something wrong or not.\nAborting"%(args.sampleName+"_"+str(args.replicate)))
+    else:
+        infoPrint("INFO","BaseRecalibrator for %s done! "%(args.sampleName+"_"+str(args.replicate)))
+        shell("gatk ApplyBQSR -R %s -I %s_dedupped_split.bam  --bqsr-recal-file %s_dedupped_split_recal_gatk4.grv -O %s_dedupped_split_recal.bam "%(conf['genome']['fasta'],BAMPrefix,BAMPrefix,BAMPrefix),
+              log=LogPrefix+"ApplyBQSR.log")
+    if fileExistCheck([BAMPrefix+"_dedupped_split_recal.bam"]):
+        infoPrint("ERROR","Check ApplyBQSR for %s has something wrong or not.\nAborting"%(args.sampleName+"_"+str(args.replicate)))
+    else:
+        infoPrint("INFO","ApplyBQSR for %s done! "%(args.sampleName+"_"+str(args.replicate)))
+        shell("samtools stat -@ 20 %s_dedupped_split_recal.bam -d > %s_dedupped_split_recal.stat "%(BAMPrefix,BAMPrefix))
+    infoPrint("INFO","Fine-tuning for %s done! "%(args.sampleName+"_"+str(args.replicate)))
+
+def grepEdit(df,REF,ALT,Enzyme,Strand):
+    df_edit= df[(df['REF']==REF)&(df['ALT']==ALT)][['#CHROM','POS','REF','ALT']+df.columns[9:].tolist()].copy()
+    df_edit_s=df[(df['REF']==REF)&(df['ALT'].str.contains(ALT))&(df['ALT']!=ALT)][['#CHROM','POS','REF','ALT']+df.columns[9:].tolist()].copy()
+    for sample in df.columns[9:].tolist():
+        df_edit[sample+'_DP']=df_edit[sample].apply(lambda x:int(x.split(":")[2].replace(".","0")))
+        df_edit_s[sample+'_DP']=df_edit_s[sample].apply(lambda x:int(x.split(":")[2].replace(".","0")))
+        df_edit[sample+'_EDIT']=df_edit[sample].apply(lambda x:int(x.split(":")[1].split(",")[-1].replace(".","0")))
+        df_edit_s[sample+'_EDIT']=df_edit_s.apply(lambda x:int(x[sample].split(":")[1].replace(".",".,.,.,.,.").split(",")[x['ALT'].split(",").index(ALT)+1].replace(".","0")),axis=1)
+    df_ = pd.concat([df_edit.drop(columns=df.columns[9:].tolist()),df_edit_s.drop(columns=df.columns[9:].tolist())],axis=0)
+    for sample in df.columns[9:].tolist():
+        df_[sample+'_EDIT%']=df_[sample+'_EDIT']/df_[sample+'_DP']
+    df_['ENZYME']=Enzyme
+    df_['STRAND']=Strand
+    return df_
+
+def setCategory(s,l,r=False):
+    s=s.astype("category")
+    s=s.cat.set_categories(l)
+    if r:
+        s=s.cat.remove_unused_categories()
+    return s
+
+def callediting(args):
+    conf = loadConfig(args.genomeVersion)
+    sampleList=(args.sampleList).split(",")
+    BAMList=[]
+    for sample in sampleList:
+        BAMList = BAMList + [os.path.abspath(args.outpath)+"/3-Combine_bam/"+sample+"/" +file for file in list(filter(lambda x:x.find('_dedupped_split_recal.bam')>=0,os.listdir(os.path.abspath(args.outpath)+"/3-Combine_bam/"+sample) ))]
+    BAMList.sort()
+    infoPrint("INFO","Samples: %s. Found!"%(", ".join(BAMList)))
+    prefix=os.path.abspath(args.outpath)+"/4-Var_calling/"+args.prefix
+    os.system("test -d %s || mkdir -p %s"%(os.path.abspath(args.outpath)+"/4-Var_calling/",os.path.abspath(args.outpath)+"/4-Var_calling/"))
+    with open(prefix+'_input.json', 'w', encoding='utf-8') as f:
+        json.dump({"Time":time.asctime( time.localtime(time.time())),"Samples":BAMList,"Prefix":args.prefix,"Intervals":args.prefix+".intervals"}, f, ensure_ascii=False, indent=4)
+        for bam in BAMList:
+            os.system("samtools idxstats -@ 2 %s | awk -v OFS='\t' '{print $1,$3}' | grep chr >> %s.intervals.tmp"%(bam,prefix))
+        os.system("cat %s.intervals.tmp | awk -v OFS='\t' '{x[$1]+=$2;} END{for(i in x) print(i,x[i])}' | sort -k  2 -n -r  > %s.intervals"%(prefix,prefix))
+        os.system("rm %s.intervals.tmp"%(prefix))
+    df_intervals=pd.read_csv(prefix+".intervals",sep="\t",header=None,names=['index','reads'])
+    df_intervals_new=df_intervals[df_intervals['reads']<=1.6*np.median(df_intervals[~df_intervals['index'].isin({"chrM","chrY"})]['reads'])]
+    df_size=pd.read_csv(conf['genome']['fasta']+".fai",sep="\t",header=None)
+    add_int={}
+    for i in list(set(df_intervals['index'])-set(df_intervals_new['index'])):
+        readcount=df_intervals.loc[df_intervals['index']==i,'reads']
+        size=int(df_size.loc[df_size[0]==i,1])
+        mid=int(size/2)
+        add_int[i+":1-"+str(mid)]=int(readcount/2)
+        add_int[i+":"+str(mid)+"-"+str(size)]=int(readcount/2)
+    pd.concat([pd.DataFrame.from_dict(data=add_int, orient='index',columns=['reads']).reset_index().sort_values(by="reads",ascending=False),df_intervals_new]).to_csv(prefix+".intervals",sep="\t",header=None,index=False)
+    BAMInput=",".join(BAMList)
+    shell("%s/src/MAPIT-seq.sh Calling_SNV_filtering_out_knownSNP %s %s %s %d %s %s %s %s %s "%(Mapit_dir,
+        args.outpath,prefix,BAMInput,args.thread,conf['genome']['fasta'],prefix+".intervals",conf['SNP']['dbSNPSplit'],conf['SNP']['1000GenomeSplit'],conf['SNP']['EVSEVASplit']),
+          log=prefix+"_CallingSNV.log")
+    prefix=os.path.abspath(args.outpath)+"/5-Var_filter/"+args.prefix
+    infoPrint("INFO","Writing data of SNVs. See \033[34m%s\033[0m <<"%(prefix+"_HaplotypeCaller_BQdefault_MAPQ0_deAllSNP_dbSNP_1000genomes_EVS_Header.vcf"))
+    df_snv=pd.read_csv(prefix+"_HaplotypeCaller_BQdefault_MAPQ0_deAllSNP_dbSNP_1000genomes_EVS_Header.vcf",header=0,sep='\t')
+    prefix=os.path.abspath(args.outpath)+"/6-Edit_calling/"+args.prefix+"/"+args.prefix
+    for sample in df_snv.columns[9:]:
+        df_snv=df_snv[(df_snv[sample].apply(lambda x:len(x.split(":")))==5)].copy()
+    df_snv_filter=pd.DataFrame(columns=['#CHROM','POS','REF','ALT',"ENZYME","STRAND"]+list(np.concatenate([[c+"_DP"]+[c+"_EDIT"] for c in df_snv.columns[9:]])))
+    if args.enzyme != "ADAR":
+        df_snv_filter=pd.concat([df_snv_filter,grepEdit(df=df_snv,REF="C",ALT="T",Enzyme="APOBEC",Strand="+")],join="outer")
+        df_snv_filter=pd.concat([df_snv_filter,grepEdit(df=df_snv,REF="G",ALT="A",Enzyme="APOBEC",Strand="-")],join="outer")
+        infoPrint("INFO","Filtering out SNVs of C-to-U edit sites by APOBEC.")
+    if args.enzyme != "APOBEC":
+        df_snv_filter=pd.concat([df_snv_filter,grepEdit(df=df_snv,REF="A",ALT="G",Enzyme="ADAR",Strand="+")],join="outer")
+        df_snv_filter=pd.concat([df_snv_filter,grepEdit(df=df_snv,REF="T",ALT="C",Enzyme="ADAR",Strand="-")],join="outer")
+        infoPrint("INFO","Filtering out SNVs of A-to-G edit sites by ADAR.")
+    df_snv_filter.insert(1,"START",df_snv_filter['POS']-1)
+    df_snv_filter.insert(4,"INDEX",df_snv_filter["#CHROM"]+"_"+df_snv_filter['POS'].astype(str))
+    os.system("test -d %s || mkdir -p %s"%(os.path.dirname(prefix),os.path.dirname(prefix)))
+    infoPrint("INFO","Writing all editing sites.")
+    df_snv_filter[['#CHROM',"START","POS","INDEX","ENZYME","STRAND"]].to_csv(prefix+"_Edit.bed",sep="\t",header=None,index=False)
+    shell('''awk -v OFS="\t" '{print $1,$2-1,$3+1,$4,$5,$6}' %s | bedtools sort -i - | bedtools getfasta -bed - -fi %s -s -bedOut | cut -f 4,7 > %s'''%(
+        prefix+"_Edit.bed",conf['genome']['fasta'],prefix+"_EditSeq.txt"))
+    infoPrint("INFO","Annotating all these editing sites to gene elements.")
+    shell("%s/src/MAPIT-seq.sh GE_Annotate %s %s"%(Mapit_dir,prefix+"_Edit.bed",conf['annotation']['gff3']))
+    df_snv_anno=pd.DataFrame(columns=['CHR','START','END',"INDEX","ENZYME",'STRAND','GID','GTYPE','TID','TTYPE','GE'])
+    for biotype in ['CDS','5UTR','3UTR','noncoding','intron','IGR']:
+        df=pd.read_csv(prefix+"_Edit_"+biotype+".bed",header=None,sep='\t',names=['CHR','START','END',"INDEX","ENZYME",'STRAND','GID','GTYPE','TID','TTYPE'])
+        df['GE']=biotype
+        if biotype in {'CDS','5UTR','3UTR','noncoding'}:
+            df=df[df['GID'].apply(lambda x:x.split(":")[0])==df['TID'].apply(lambda x:x.split(":")[-1])].copy()
+        df_snv_anno=pd.concat([df_snv_anno,df.fillna("None")],join="inner")
+    os.system("rm %s_Edit_*.bed"%(prefix))
+    df_snv_anno["CHR"]=setCategory(df_snv_anno["CHR"],["chr"+str(chrom) for chrom in list(range(1,24))+["X","Y","M"]],True)
+    TTypeList=["protein_coding","lncRNA","nonsense_mediated_decay","processed_transcript","misc_RNA","snRNA","miRNA","snoRNA","non_stop_decay","IG_V_gene","TR_V_gene","IG_C_gene","TR_J_gene","rRNA","IG_D_gene","scaRNA","TR_C_gene","IG_J_gene","Mt_tRNA","ribozyme","sRNA","TR_D_gene","Mt_rRNA","scRNA","vault_RNA","processed_pseudogene","unprocessed_pseudogene","transcribed_unprocessed_pseudogene","transcribed_unitary_pseudogene","TEC","transcribed_processed_pseudogene","polymorphic_pseudogene","rRNA_pseudogene","IG_V_pseudogene","unitary_pseudogene","pseudogene","TR_V_pseudogene","IG_C_pseudogene","translated_unprocessed_pseudogene","IG_J_pseudogene","TR_J_pseudogene","translated_processed_pseudogene","IG_pseudogene"]
+    df_snv_anno["TTYPE"]=setCategory(df_snv_anno["TTYPE"],TTypeList+['None'],True)
+    df_snv_anno["GE"]=setCategory(df_snv_anno["GE"],['CDS','3UTR','5UTR','noncoding','intron','IGR'],True)
+    df_snv_anno.sort_values(by=["CHR","END","GE","TTYPE"],inplace=True)
+    df_snv_anno.drop_duplicates(subset=["INDEX","ENZYME","GID"],keep="first",inplace=True)
+    df_snv_anno.drop(columns=["TID"]).to_csv("%s_Edit_GE.bed"%(prefix),sep="\t",header=None,index=False)
+    infoPrint("INFO","Annotating all these editing sites to repetitive elements based on RepeatMask, UCSC.")
+    shell('''bedtools intersect -a %s_Edit_GE.bed -b %s -s -loj | cut -f 1-10,14,15 | awk -v OFS="\t" '{gsub(/\./,"None",$11); gsub("-1","None",$12); print}' > %s_Edit_GE_RPE.bed'''%(
+        prefix,conf['annotation']['repeatMask'],prefix))
+    df_snv_anno=pd.read_csv(prefix+"_Edit_GE_RPE.bed",sep='\t',header=None,names=['CHR','START','END',"INDEX","ENZYME",'STRAND','GID','GTYPE','TTYPE','GE','RPNAME','RPE'])
+    df_seq=pd.read_csv(prefix+"_EditSeq.txt",sep="\t",header=None,names=['INDEX','SEQ'])
+    df_edit=pd.merge(df_snv_anno,df_seq,left_on="INDEX",right_on="INDEX",how="inner")
+    df_edit=pd.merge(df_edit,df_snv_filter.drop(columns=['#CHROM',"START","POS","ENZYME","STRAND"]),left_on="INDEX",right_on="INDEX",how="inner")
+    df_edit["CHR"]=setCategory(df_edit["CHR"],["chr"+str(chrom) for chrom in list(range(1,24))+["X","Y","M"]],True)
+    infoPrint("INFO","Writing data of all editing sites with annotation. \nSee >> \033[34mAllEdit_GE_RPE_DATA.tsv\033[0m <<")
+    df_edit.sort_values(by=["CHR","END"]).to_csv(prefix+"_Edit_GE_RPE_DATA.tsv",sep='\t',index=False)
+    df_edit_eventgb=df_edit[df_edit['GE']!="IGR"].drop_duplicates(subset=["INDEX"],keep="first").groupby(["ENZYME"])[list(filter(lambda x:x.find("_EDIT")>=0 and x.find("EDIT%")<0,df_edit.columns.tolist()))].sum().T
+    df_edit_eventgb['mappedBases']=[int(subprocess.check_output("grep 'bases mapped (cigar)' %s | grep 'more accurate'"%(args.outpath+"/3-Combine_bam/"+sample[:-5].split("_")[0]+"/"+sample[:-5]+"_combine_dedupped_split_recal.stat"),shell=True,text=True).split("\t")[2]) for sample in df_edit_eventgb.index]
+    for enzyme in set(df_edit['ENZYME']):
+        df_edit_eventgb[enzyme+'editingdensity']=df_edit_eventgb[enzyme]/df_edit_eventgb['mappedBases']*1e6
+    df_edit_eventgb.to_csv(prefix+"_Edit_density.tsv",sep='\t')
+
+def calltargets(args):
+    if args.level == "transcript":
+        calltargets_transcript(args)
+    elif args.level == "gene":
+        calltargets_gene(args)
+
+def calltargets_transcript(args):
+    from scipy.stats import poisson
+    from scipy.stats import false_discovery_control
+    conf = loadConfig(args.genomeVersion)
+    prefix=os.path.dirname(os.path.abspath(args.inputEdit))
+    editFile=os.path.abspath(args.inputEdit)
+    if fileExistCheck([editFile]):
+        infoPrint("ERROR","%s NOT found. Run 'callediting' before 'denoising'."%(editFile))
+    else:
+        infoPrint("INFO","Reading data of all editing sites with annotation. <<< \033[34m%s\033[0m <<"%(editFile))
+        df_edit=pd.read_csv(editFile,sep='\t')
+    controlSamples=list(np.concatenate([ re.findall(r'(%s_\d+)_DP'%(args.controlName),i) for i in df_edit.columns[14:] ]))
+    treatSamples=list(np.concatenate([ re.findall(r'(%s_\d+)_DP'%(args.treatName),i) for i in df_edit.columns[14:] ]))
+    if args.dropTreatRep:
+        infoPrint("INFO","Dropping sample %s"%(",".join([args.treatName+"_"+i for i in args.dropTreatRep.split(",")])))
+        treatSamples=(list(set(treatSamples)-set([args.treatName+"_"+i for i in args.dropTreatRep.split(",")])))
+    if args.dropControlRep:
+        infoPrint("INFO","Dropping sample %s"%(",".join([args.controlName+"_"+i for i in args.dropControlRep.split(",")])))
+        controlSamples=(list(set(controlSamples)-set([args.controlName+"_"+i for i in args.dropControlRep.split(",")])))
+    if (len(controlSamples)==0) and (len(treatSamples)==0):
+        infoPrint("ERROR","Treat or Control Samples NOT found in %s. Run 'callediting' before 'denoising', and make sure '--sampleList' parameters are containing samples you input."%(editFile))
+    os.system("test -d %s || mkdir -p %s"%(prefix+args.treatName,prefix+args.treatName))
+    df_edit=df_edit[~df_edit['GE'].isin({"IGR",'intron'})].copy()
+    df_edit=df_edit[df_edit[[sample+"_EDIT" for sample in treatSamples + controlSamples]].apply(lambda x:sum(x),axis=1)>0].copy()
+    if args.singleCell:
+        df_edit=df_edit[(df_edit[[sample+"_DP" for sample in treatSamples]].sum(1) >= 2*args.coverage)&(df_edit[[sample+"_DP" for sample in controlSamples]].sum(1) >= 2*args.coverage)].copy()
+    else:
+        df_edit=df_edit[(df_edit[[sample+"_DP" for sample in treatSamples]].mean(1) >= args.coverage)&(df_edit[[sample+"_DP" for sample in controlSamples]].mean(1) >= args.coverage)].copy()
+    
+    # coordinates transforming 
+    infoPrint("INFO","Transforming Genomic Coordinates to Transcript Coordinate Ranges...")
+    bed_edit=pybedtools.bedtool.BedTool.from_dataframe(df_edit.fillna(0))
+    df_merge_exon=pd.read_csv(os.path.abspath(re.sub(r"\.gff[3]{0,1}","_exon_merge.bed",conf['annotation']['gff3'])),sep='\t',header=None,names=['chrom','start','end','exonid:geneid','tt:gt','strand','length','cumsum'])
+    df_merge_exon['GENEID']=df_merge_exon['exonid:geneid'].apply(lambda x:x.split(":")[1].split(";")[0])
+    df_merge_exon['EXONID']=df_merge_exon.apply(lambda x:x['exonid:geneid'].replace(":"+x['GENEID'],""),axis=1)
+    exon=pybedtools.bedtool.BedTool.from_dataframe(df_merge_exon[["chrom","start","end","EXONID","GENEID","strand","length","cumsum"]])
+    bed_edit_exon=bed_edit.intersect(exon,wa=True,wb=True,s=True)
+    df_edit_exon=bed_edit_exon.to_dataframe(names=df_edit.columns.tolist()+["echrom","estart","eend","EXONID","GENEID","estrand","length","cumsum"])
+    df_edit_exon=df_edit_exon[df_edit_exon.apply(lambda x:x['GENEID'] in x['GID'],axis=1) ]
+    df_edit_exon['GSTART']=""
+    df_edit_exon['GEND']=""
+    df_edit_exon.loc[df_edit_exon['STRAND']=="+",'GEND']=df_edit_exon.loc[df_edit_exon['STRAND']=="+"].apply(lambda x:x['cumsum']-(x['eend']-x['END']),axis=1)
+    df_edit_exon.loc[df_edit_exon['STRAND']=="+",'GSTART']=df_edit_exon.loc[df_edit_exon['STRAND']=="+",'GEND']-1
+    df_edit_exon.loc[df_edit_exon['STRAND']=="-",'GSTART']=df_edit_exon.loc[df_edit_exon['STRAND']=="-"].apply(lambda x:x['cumsum']-(x['END']-x['estart']),axis=1)
+    df_edit_exon.loc[df_edit_exon['STRAND']=="-",'GEND']=df_edit_exon.loc[df_edit_exon['STRAND']=="-",'GSTART']+1
+    
+    infoPrint("INFO","Dropping Non-editing Sites...")
+    df_edit_exon=df_edit_exon[(df_edit_exon[[sample+"_EDIT%" for sample in controlSamples]].max(1)<0.6)].copy()
+    
+    if "ADAR" in set(df_edit_exon['ENZYME']) or "AG" in set(df_edit_exon['ENZYME']) :
+        infoPrint("INFO","Dropping Endogenous ADAR Editing Clusters...")
+        bed_ctr=pybedtools.bedtool.BedTool.from_dataframe(df_edit_exon[(df_edit_exon[[sample+"_EDIT%" for sample in controlSamples]].sum(1)>0)&
+                                                                (df_edit_exon[[sample+"_DP" for sample in controlSamples]].mean(1)>=args.coverage)&
+                                                                ((df_edit_exon['ENZYME']=="ADAR")|(df_edit_exon['ENZYME']=="AG"))][["GENEID","GSTART","GEND","INDEX"]])
+        bed_ctr=bed_ctr.sort().cluster(d=50)
+        df_ctr=bed_ctr.to_dataframe(names=["GENEID","GSTART","GEND","INDEX","CLUSTER"])
+        df_ctr_gb=df_ctr.groupby("CLUSTER").agg({"GENEID":"first","GSTART":"min","GEND":"max","INDEX":",".join})
+        df_ctr_gb['COUNT']=df_ctr_gb["INDEX"].apply(lambda x:len(x.split(",")))
+        bed_all=pybedtools.bedtool.BedTool.from_dataframe(df_edit_exon[(df_edit_exon['ENZYME']=="ADAR")|(df_edit_exon['ENZYME']=="AG")][["GENEID","GSTART","GEND","INDEX"]+[sample+"_EDIT%" for sample in controlSamples]])
+        bed_all=bed_all.intersect(bed_ctr,wa=True,wb=True)
+        df_all=bed_all.to_dataframe(names=["GENEID","GSTART","GEND","INDEX"]+[sample+"_EDIT%" for sample in controlSamples]+["GENEID1","GSTART1","GEND1","INDEX1","CLUSTER"])
+        df_all_gb=pd.merge(df_all[["CLUSTER"]+[sample+"_EDIT%" for sample in controlSamples]].groupby("CLUSTER").agg("max"),df_ctr_gb[["COUNT"]],left_index=True,right_index=True)
+        df_edit_exon=df_edit_exon[~df_edit_exon["INDEX"].isin(set(df_all[df_all['CLUSTER'].isin(set(df_all_gb[(df_all_gb[[sample+"_EDIT%" for sample in controlSamples]].sum(1)>0.15)&(df_all_gb["COUNT"]>=4)].index))]['INDEX']))].copy()
+    
+    infoPrint("INFO","Performing Poisson Filtering...")
+    baseline_edit={"ADAR":0.10,"APOBEC":0.05,"AG":0.10,"CT":0.05}
+    for sample in treatSamples+controlSamples:
+        df_edit_exon[sample+'_Poisson_P']=df_edit_exon.apply(lambda x: 1 - poisson.cdf(x[sample+'_EDIT'], baseline_edit[x['ENZYME']]*x[sample+'_DP'], loc=0) ,axis=1)
+        df_edit_exon[sample+'_PASSED_Poisson']=False
+        df_edit_exon.loc[(df_edit_exon[sample+'_Poisson_P']<=args.pvalue)&(df_edit_exon[sample+"_DP"]>=args.coverage),sample+"_PASSED_Poisson"]=True
+    df_edit_exon=df_edit_exon[~((df_edit_exon[[sample+"_PASSED_Poisson" for sample in controlSamples]].sum(1)>0)&
+                                (df_edit_exon[[sample+"_PASSED_Poisson" for sample in treatSamples]].sum(1)>0))].copy()
+    
+    df_edit_exon[["GENEID","GEND","INDEX"]+list(np.array([list(filter(lambda x:x.find(sample+"_")>=0,df_edit_exon.columns)) for sample in controlSamples+treatSamples]).flatten())].to_csv(prefix+args.treatName+"/"+args.treatName+"vs"+args.controlName+"_DATA.tsv",sep="\t")
+    
+    infoPrint("INFO","Splitting Transcripts into Bins with the Lenth of %dbp..."%(args.binSize))
+    df_edit_exon['#BIN']=df_edit_exon['GEND']//args.binSize
+    bindict={"INDEX":",".join}
+    for sample in treatSamples + controlSamples:
+        bindict[sample+"_DP"]="sum"
+        bindict[sample+"_EDIT%"]="sum"
+    df_edit_exon_bin=df_edit_exon.groupby(["GENEID","ENZYME","#BIN"]).agg(bindict).reset_index()
+    df_edit_exon_bin=df_edit_exon_bin[(df_edit_exon_bin[[sample+"_DP" for sample in controlSamples]].mean(1)>args.coverage)&(df_edit_exon_bin[[sample+"_DP" for sample in treatSamples]].mean(1)>args.coverage)].copy()
+    df_edit_exon_bin[args.treatName+'_EDIT%']=df_edit_exon_bin[[sample+"_EDIT%" for sample in treatSamples ]].sum(1)
+    df_edit_exon_bin[args.controlName+'_EDIT%']=df_edit_exon_bin[[sample+"_EDIT%" for sample in controlSamples ]].sum(1)
+    df_edit_exon_bin=df_edit_exon_bin[df_edit_exon_bin[args.treatName+'_EDIT%']+df_edit_exon_bin[args.controlName+'_EDIT%'] > 0].copy()
+    
+    # Wilcoxon Signed-Rank Test & Editing Enrichment
+    infoPrint("INFO","Performing Wilcoxon Signed-Rank Test Based on Editing Index of these Bins...")
+    df_edit_exon_bin_gbg=pd.merge(df_edit_exon_bin[[args.treatName+'_EDIT%',args.controlName+'_EDIT%',"GENEID","ENZYME"]].groupby(["GENEID","ENZYME"]).agg("sum").rename(columns={args.treatName+'_EDIT%':args.treatName+"_EI",args.controlName+'_EDIT%':args.controlName+"_EI"}),
+                                  df_edit_exon_bin[["GENEID","ENZYME","#BIN",args.treatName+'_EDIT%',args.controlName+'_EDIT%']].groupby(["GENEID","ENZYME"]).agg(list),left_index=True,right_index=True).reset_index().set_index("GENEID")
+    df_edit_exon_bin_gbb=df_edit_exon_bin.groupby(['GENEID',"ENZYME"]).agg({"ENZYME":"count"}).rename(columns={"ENZYME":"Count"}).reset_index().pivot(columns="ENZYME",index="GENEID",values="Count").fillna(0).astype(int)
+    df_edit_exon_bin_gbg=pd.merge(df_edit_exon_bin_gbg,np.ceil(df_merge_exon[["GENEID","length"]].groupby("GENEID").sum()["length"]/args.binSize),left_index=True,right_index=True,how="left")
+
+    df_edit_exon_bin_gbg=pd.merge(df_edit_exon_bin[[args.treatName+'_EDIT%',args.controlName+'_EDIT%',"GENEID"]].groupby(["GENEID"]).agg("sum").rename(columns={args.treatName+'_EDIT%':args.treatName+"_EI",args.controlName+'_EDIT%':args.controlName+"_EI"}),
+                                  df_edit_exon_bin[["GENEID","#BIN",args.treatName+'_EDIT%',args.controlName+'_EDIT%']].groupby(["GENEID"]).agg(list),left_index=True,right_index=True).reset_index().set_index("GENEID")
+    df_edit_exon_bin_gbb=df_edit_exon_bin.groupby(['GENEID']).agg({"GENEID":"count"}).rename(columns={"GENEID":"Count"}).fillna(0).astype(int)
+    df_edit_exon_bin_gbg=pd.merge(df_edit_exon_bin_gbg,np.ceil(df_merge_exon[["GENEID","length"]].groupby("GENEID").sum()["length"]/args.binSize),left_index=True,right_index=True,how="left")
+    df_edit_exon_es=df_edit_exon[["GENEID"]+[sample+"_EDIT" for sample in controlSamples+treatSamples]+[sample+"_DP" for sample in controlSamples+treatSamples]].groupby("GENEID").sum()
+    df_edit_exon_es['ES']=((df_edit_exon_es[[sample+"_EDIT" for sample in treatSamples]].sum(1)+1)/df_edit_exon_es[[sample+"_DP" for sample in treatSamples]].sum(1))/((df_edit_exon_es[[sample+"_EDIT" for sample in controlSamples]].sum(1)+1)/df_edit_exon_es[[sample+"_DP" for sample in controlSamples]].sum(1))
+    if args.supply_zero:
+        df_edit_exon_bin_gbb=pd.merge(df_edit_exon_bin_gbb,df_edit_exon_bin_gbg.apply(lambda x:stats.wilcoxon(x[args.treatName+'_EDIT%']+[0.0]*(int(x["length"])-len(x['#BIN'])),x[args.controlName+'_EDIT%']+[0.0]*(int(x["length"])-len(x['#BIN'])), alternative='greater',zero_method="zsplit"),
+                                                                                                                                  axis=1, result_type="expand").rename(columns={0:"STATISTIC",1:"VALUE"}),left_index=True,right_index=True,how="left")
+    else:
+        df_edit_exon_bin_gbb=pd.merge(df_edit_exon_bin_gbb,df_edit_exon_bin_gbg.apply(lambda x:stats.wilcoxon(x[args.treatName+'_EDIT%'],x[args.controlName+'_EDIT%'], alternative='greater',zero_method="zsplit"),
+                                                                                                                                  axis=1, result_type="expand").rename(columns={0:"STATISTIC",1:"PVALUE"}),left_index=True,right_index=True,how="left")
+    df_edit_exon_bin_gbb["P.ADJ"]=false_discovery_control(df_edit_exon_bin_gbb['PVALUE'],method="bh")
+    df_edit_exon_bin_gbb["FC"]=(df_edit_exon_bin_gbg[args.treatName+'_EI']+0.1*np.median(df_edit_exon_bin_gbg[args.controlName+'_EI']))/(df_edit_exon_bin_gbg[args.controlName+'_EI']+0.1*np.median(df_edit_exon_bin_gbg[args.controlName+'_EI']))
+    df_edit_exon_bin_gbb["ES"]=df_edit_exon_es['ES']
+    df_edit_exon_bin_gbb["MAPITscore"]=(df_edit_exon_bin_gbg[args.treatName+'_EI'])-(df_edit_exon_bin_gbg[args.controlName+'_EI'])
+    df_gene=df_edit['GID'].drop_duplicates().str.split(":",expand=True).set_index(0)
+    df_gene.index.name="GENEID"
+    df_gene.columns=['GENESYMBOL']
+    pd.merge(df_gene,df_edit_exon_bin_gbb,left_index=True,right_index=True).sort_values(by=["PVALUE"]).to_csv(prefix+args.treatName+"/"+args.treatName+"vs"+args.controlName+"_bs"+str(args.binSize)+"_Targets_v5.tsv",sep="\t")
+
+def calltargets_gene(args):
+    from scipy.stats import poisson
+    from scipy.stats import false_discovery_control
+    conf = loadConfig(args.genomeVersion)
+    prefix=os.path.dirname(os.path.abspath(args.inputEdit))
+    editFile=os.path.abspath(args.inputEdit)
+    if fileExistCheck([editFile]):
+        infoPrint("ERROR","%s NOT found. Run 'callediting' before 'denoising'."%(editFile))
+    else:
+        infoPrint("INFO","Reading data of all editing sites with annotation. <<< \033[34m%s\033[0m <<"%(editFile))
+        df_edit=pd.read_csv(editFile,sep='\t')
+    controlSamples=list(np.concatenate([ re.findall(r'(%s_\d+)_DP'%(args.controlName),i) for i in df_edit.columns[14:] ]))
+    treatSamples=list(np.concatenate([ re.findall(r'(%s_\d+)_DP'%(args.treatName),i) for i in df_edit.columns[14:] ]))
+    if args.dropTreatRep:
+        infoPrint("INFO","Dropping sample %s"%(",".join([args.treatName+"_"+i for i in args.dropTreatRep.split(",")])))
+        treatSamples=(list(set(treatSamples)-set([args.treatName+"_"+i for i in args.dropTreatRep.split(",")])))
+    if args.dropControlRep:
+        infoPrint("INFO","Dropping sample %s"%(",".join([args.controlName+"_"+i for i in args.dropControlRep.split(",")])))
+        controlSamples=(list(set(controlSamples)-set([args.controlName+"_"+i for i in args.dropControlRep.split(",")])))
+    if (len(controlSamples)==0) and (len(treatSamples)==0):
+        infoPrint("ERROR","Treat or Control Samples NOT found in %s. Run 'callediting' before 'denoising', and make sure '--sampleList' parameters are containing samples you input."%(editFile))
+    os.system("test -d %s || mkdir -p %s"%(prefix+args.treatName,prefix+args.treatName))
+    df_edit=df_edit[~df_edit['GE'].isin({"IGR"})].copy()
+    df_edit=df_edit[df_edit[[sample+"_EDIT" for sample in treatSamples + controlSamples]].apply(lambda x:sum(x),axis=1)>0].copy()
+    if args.singleCell:
+        df_edit=df_edit[(df_edit[[sample+"_DP" for sample in treatSamples]].sum(1) >= 2*args.coverage)&(df_edit[[sample+"_DP" for sample in controlSamples]].sum(1) >= 2*args.coverage)].copy()
+    else:
+        df_edit=df_edit[(df_edit[[sample+"_DP" for sample in treatSamples]].mean(1) >= args.coverage)&(df_edit[[sample+"_DP" for sample in controlSamples]].mean(1) >= args.coverage)].copy()
+    
+    bed_edit=pybedtools.bedtool.BedTool.from_dataframe(df_edit.fillna(0))
+    df_gene=pd.read_csv(os.path.abspath(re.sub(r"\.gff[3]{0,1}","_gene.bed",conf['annotation']['gff3'])),sep='\t',header=None,names=["chrom","start","end","GID","genetype","strand"])
+    df_gene["GENEID"]=df_gene['GID'].apply(lambda x:x.split(":")[0])
+    df_gene["length"]=df_gene['end']-df_gene['start']
+    gene=pybedtools.bedtool.BedTool.from_dataframe(df_gene[["chrom","start","end","GENEID","genetype","strand","length"]])
+    bed_edit_gene=bed_edit.intersect(gene,wa=True,wb=True,s=True)
+    df_edit_gene=bed_edit_gene.to_dataframe(names=df_edit.columns.tolist()+["gchrom","gstart","gend","GENEID","genetype","gstrand","length"])
+    df_edit_gene=df_edit_gene[df_edit_gene.apply(lambda x:x['GENEID'] in x['GID'],axis=1) ]
+    df_edit_gene['GSTART']=""
+    df_edit_gene['GEND']=""
+    df_edit_gene.loc[df_edit_gene['STRAND']=="+",'GEND']=df_edit_gene.loc[df_edit_gene['STRAND']=="+"].apply(lambda x:x['gend']-x['END'],axis=1)
+    df_edit_gene.loc[df_edit_gene['STRAND']=="+",'GSTART']=df_edit_gene.loc[df_edit_gene['STRAND']=="+",'GEND']-1
+    df_edit_gene.loc[df_edit_gene['STRAND']=="-",'GSTART']=df_edit_gene.loc[df_edit_gene['STRAND']=="-"].apply(lambda x:x['END']-x['gstart'],axis=1)
+    df_edit_gene.loc[df_edit_gene['STRAND']=="-",'GEND']=df_edit_gene.loc[df_edit_gene['STRAND']=="-",'GSTART']+1
+    
+    infoPrint("INFO","Dropping Non-editing Sites...")
+    df_edit_gene=df_edit_gene[(df_edit_gene[[sample+"_EDIT%" for sample in controlSamples]].max(1)<0.6)].copy()
+    
+    if "ADAR" in set(df_edit_gene['ENZYME']) or "AG" in set(df_edit_gene['ENZYME']) :
+        infoPrint("INFO","Dropping Endogenous ADAR Editing Clusters...")
+        bed_ctr=pybedtools.bedtool.BedTool.from_dataframe(df_edit_gene[(df_edit_gene[[sample+"_EDIT%" for sample in controlSamples]].sum(1)>0)&
+                                                                (df_edit_gene[[sample+"_DP" for sample in controlSamples]].mean(1)>=args.coverage)&
+                                                                ((df_edit_gene['ENZYME']=="ADAR")|(df_edit_gene['ENZYME']=="AG"))][["CHR","START","END","INDEX"]])
+        bed_ctr=bed_ctr.sort().cluster(d=50)
+        df_ctr=bed_ctr.to_dataframe(names=["CHR","START","END","INDEX","CLUSTER"])
+        df_ctr_gb=df_ctr.groupby("CLUSTER").agg({"CHR":"first","START":"min","END":"max","INDEX":",".join})
+        df_ctr_gb['COUNT']=df_ctr_gb["INDEX"].apply(lambda x:len(x.split(",")))
+        bed_all=pybedtools.bedtool.BedTool.from_dataframe(df_edit_gene[(df_edit_gene['ENZYME']=="ADAR")|(df_edit_gene['ENZYME']=="AG")][["CHR","START","END","INDEX"]+[sample+"_EDIT%" for sample in controlSamples]])
+        bed_all=bed_all.intersect(bed_ctr,wa=True,wb=True)
+        df_all=bed_all.to_dataframe(names=["CHR","START","END","INDEX"]+[sample+"_EDIT%" for sample in controlSamples]+["CHR1","START1","END1","INDEX1","CLUSTER"])
+        df_all_gb=pd.merge(df_all[["CLUSTER"]+[sample+"_EDIT%" for sample in controlSamples]].groupby("CLUSTER").agg("max"),df_ctr_gb[["COUNT"]],left_index=True,right_index=True)
+        df_edit_gene=df_edit_gene[~df_edit_gene["INDEX"].isin(set(df_all[df_all['CLUSTER'].isin(set(df_all_gb[(df_all_gb[[sample+"_EDIT%" for sample in controlSamples]].sum(1)>0.15)&(df_all_gb["COUNT"]>=4)].index))]['INDEX']))].copy()
+    
+    infoPrint("INFO","Performing Poisson Filtering...")
+    baseline_edit={"ADAR":0.10,"APOBEC":0.05,"AG":0.10,"CT":0.05}
+    for sample in treatSamples+controlSamples:
+        df_edit_gene[sample+'_Poisson_P']=df_edit_gene.apply(lambda x: 1 - poisson.cdf(x[sample+'_EDIT'], baseline_edit[x['ENZYME']]*x[sample+'_DP'], loc=0) ,axis=1)
+        df_edit_gene[sample+'_PASSED_Poisson']=False
+        df_edit_gene.loc[(df_edit_gene[sample+'_Poisson_P']<=args.pvalue)&(df_edit_gene[sample+"_DP"]>=args.coverage),sample+"_PASSED_Poisson"]=True
+    df_edit_gene=df_edit_gene[~((df_edit_gene[[sample+"_PASSED_Poisson" for sample in controlSamples]].sum(1)>0)&
+                                (df_edit_gene[[sample+"_PASSED_Poisson" for sample in treatSamples]].sum(1)>0))].copy()
+    
+    df_edit_gene[["CHR","END","INDEX","GENEID"]+list(np.array([list(filter(lambda x:x.find(sample+"_")>=0,df_edit_gene.columns)) for sample in controlSamples+treatSamples]).flatten())].to_csv(prefix+args.treatName+"/"+args.treatName+"vs"+args.controlName+"_DATA_v6.tsv",sep="\t")
+    
+    infoPrint("INFO","Splitting Transcripts into Bins with the Lenth of %dbp..."%(args.binSize))
+    df_edit_gene['#BIN']=df_edit_gene['GEND']//args.binSize
+    bindict={"INDEX":",".join}
+    for sample in treatSamples + controlSamples:
+        bindict[sample+"_DP"]="sum"
+        bindict[sample+"_EDIT%"]="sum"
+    df_edit_gene_bin=df_edit_gene.groupby(["GENEID","ENZYME","#BIN"]).agg(bindict).reset_index()
+    df_edit_gene_bin=df_edit_gene_bin[(df_edit_gene_bin[[sample+"_DP" for sample in controlSamples]].mean(1)>args.coverage)&(df_edit_gene_bin[[sample+"_DP" for sample in treatSamples]].mean(1)>args.coverage)].copy()
+    df_edit_gene_bin[args.treatName+'_EDIT%']=df_edit_gene_bin[[sample+"_EDIT%" for sample in treatSamples ]].sum(1)
+    df_edit_gene_bin[args.controlName+'_EDIT%']=df_edit_gene_bin[[sample+"_EDIT%" for sample in controlSamples ]].sum(1)
+    df_edit_gene_bin=df_edit_gene_bin[df_edit_gene_bin[args.treatName+'_EDIT%']+df_edit_gene_bin[args.controlName+'_EDIT%'] > 0].copy()
+    
+    # Wilcoxon Signed-Rank Test & Editing Enrichment
+    infoPrint("INFO","Performing Wilcoxon Signed-Rank Test Based on Editing Index of these Bins...")
+    df_edit_gene_bin_gbg=pd.merge(df_edit_gene_bin[[args.treatName+'_EDIT%',args.controlName+'_EDIT%',"GENEID"]].groupby(["GENEID"]).agg("sum").rename(columns={args.treatName+'_EDIT%':args.treatName+"_EI",args.controlName+'_EDIT%':args.controlName+"_EI"}),
+                                  df_edit_gene_bin[["GENEID","#BIN",args.treatName+'_EDIT%',args.controlName+'_EDIT%']].groupby(["GENEID"]).agg(list),left_index=True,right_index=True).reset_index().set_index("GENEID")
+    df_edit_gene_bin_gbb=df_edit_gene_bin.groupby(['GENEID']).agg({"GENEID":"count"}).rename(columns={"GENEID":"Count"}).fillna(0).astype(int)
+    df_edit_gene_bin_gbg=pd.merge(df_edit_gene_bin_gbg,np.ceil(df_gene[["GENEID","length"]].groupby("GENEID").sum()["length"]/args.binSize),left_index=True,right_index=True,how="left")
+    df_edit_gene_es=df_edit_gene[["GENEID"]+[sample+"_EDIT" for sample in controlSamples+treatSamples]+[sample+"_DP" for sample in controlSamples+treatSamples]].groupby("GENEID").sum()
+    df_edit_gene_es['ES']=((df_edit_gene_es[[sample+"_EDIT" for sample in treatSamples]].sum(1)+1)/df_edit_gene_es[[sample+"_DP" for sample in treatSamples]].sum(1))/((df_edit_gene_es[[sample+"_EDIT" for sample in controlSamples]].sum(1)+1)/df_edit_gene_es[[sample+"_DP" for sample in controlSamples]].sum(1))
+    if args.supply_zero:
+        df_edit_gene_bin_gbb=pd.merge(df_edit_gene_bin_gbb,df_edit_gene_bin_gbg.apply(lambda x:stats.wilcoxon(x[args.treatName+'_EDIT%']+[0.0]*(int(x["length"])-len(x['#BIN'])),x[args.controlName+'_EDIT%']+[0.0]*(int(x["length"])-len(x['#BIN'])), alternative='greater',zero_method="zsplit"),
+                                                                                                                                  axis=1, result_type="expand").rename(columns={0:"STATISTIC",1:"VALUE"}),left_index=True,right_index=True,how="left")
+    else:
+        df_edit_gene_bin_gbb=pd.merge(df_edit_gene_bin_gbb,df_edit_gene_bin_gbg.apply(lambda x:stats.wilcoxon(x[args.treatName+'_EDIT%'],x[args.controlName+'_EDIT%'], alternative='greater',zero_method="zsplit"),
+                                                                                                                                  axis=1, result_type="expand").rename(columns={0:"STATISTIC",1:"PVALUE"}),left_index=True,right_index=True,how="left")
+    df_edit_gene_bin_gbb["P.ADJ"]=false_discovery_control(df_edit_gene_bin_gbb['PVALUE'],method="bh")
+    df_edit_gene_bin_gbb["FC"]=(df_edit_gene_bin_gbg[args.treatName+'_EI']+0.1*np.median(df_edit_gene_bin_gbg[args.controlName+'_EI']))/(df_edit_gene_bin_gbg[args.controlName+'_EI']+0.1*np.median(df_edit_gene_bin_gbg[args.controlName+'_EI']))
+    df_edit_gene_bin_gbb["ES"]=df_edit_gene_es['ES']
+    df_edit_gene_bin_gbb["MAPITscore"]=(df_edit_gene_bin_gbg[args.treatName+'_EI'])-(df_edit_gene_bin_gbg[args.controlName+'_EI'])
+    df_gene=df_edit['GID'].drop_duplicates().str.split(":",expand=True).set_index(0)
+    df_gene.index.name="GENEID"
+    df_gene.columns=['GENESYMBOL']
+    pd.merge(df_gene,df_edit_gene_bin_gbb,left_index=True,right_index=True).sort_values(by=["PVALUE"]).to_csv(prefix+args.treatName+"/"+args.treatName+"vs"+args.controlName+"_bs"+str(args.binSize)+"_Targets_v6.tsv",sep="\t")
+    
+def pre_sailor(args):
+    conf = loadConfig(args.genomeVersion)
+    app_conf = json.load(open(Mapit_dir+'/conf/software.json'))
+    for d in ['3.1-Split_strand','4.1-Redi_sailor','5.1-Var_filter','6.1-Edit_bedgraphs','6.2-Edit_bigwig']:
+        os.system("test -d %s || mkdir -p %s"%(args.outpath+"/"+d+"/",args.outpath+"/"+d+"/"))
+    infoPrint("INFO","Begin to prepare files for SAILOR workflow...")
+    ps=subprocess.Popen("%s/src/MAPIT-seq.sh Pre_for_SAILOR %s %s %d %s %s 20 %s %s"%(
+            Mapit_dir,os.path.abspath(args.outpath),args.sampleName,args.replicate,conf['genome']['fasta'],conf['genome']['fasta']+".fai",
+            app_conf["FLARE"],app_conf["Reditools"]),shell=True)
+    ps.wait()
+    infoPrint("INFO","SAILOR preparation Done.")
+    
+def sailor_workflow(args):
+    conf = loadConfig(args.genomeVersion)
+    app_conf = json.load(open(Mapit_dir+'/conf/software.json'))
+    infoPrint("INFO","Begin to run SAILOR workflow...")
+    shell("%s/src/MAPIT-seq.sh SAILOR_for_MAPIT \
+        %s %s %d %s %s %s %s %s %s %s %s"%(
+            Mapit_dir, args.outpath, args.sampleName, args.replicate,conf['genome']['fasta'],conf['genome']['fasta']+".fai",
+            args.thread,conf['SNP']['dbSNPSplit'],conf['SNP']['1000GenomeSplit'],conf['SNP']['EVSEVASplit'],
+            app_conf["FLARE"],app_conf["Reditools"]))
+    infoPrint("INFO","SAILOR Done.")
+    
+def flare_workflow(args):
+    conf = loadConfig(args.genomeVersion)
+    app_conf = json.load(open(Mapit_dir+'/conf/software.json'))
+    infoPrint("INFO","Begin to run FLARE workflow...")
+    shell("%s/src/MAPIT-seq.sh FLARE_for_MAPIT \
+        %s %s %d %s %s %s %d %s"%(Mapit_dir, args.outpath, args.sampleName, args.replicate,
+            conf['genome']['fasta'],args.regions,args.edittype,round(args.thread/32+0.49999), app_conf["FLARE"]))
+    infoPrint("INFO","FLARE Done.")
+
+def hc_cluster(args):
+    conf = loadConfig(args.genomeVersion)
+    infoPrint("INFO","Begin to indentify high-confidence edit clusters...")
+    shell("%s/src/MAPIT-seq.sh HC_cluster \
+        %s %s %d"%(Mapit_dir, args.outpath, args.sampleName, args.sloplength))
+    infoPrint("INFO","Indentify high-confidence edit clusters, Done.")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='MAPIT-seq (\33[4mM\33[0modification \33[4mA\33[0mdjacent to RNA binding \33[4mP\33[0mrotein \33[4mI\33[0mnteracting \33[4mT\33[0marget \33[4mSeq\33[0muencing) is to identify RBP target transcripts based on adjacently editing by both hADARcd and rAPOBEC. This pipeline is designed to identify RNA-editing events by hADARcd and rAPOBEC from MAPIT-seq data, and then find the find RBP binding regions with high confidence and de novo discover RBP binding motifs.\n\
+        \nDetail information is available at \33[4mhttps://github.com/WangLabPKU/Mapit-seq\33[0m.\n\
+        \nAuthor: Gang Xie  gangx1e@stu.pku.edu.cn\n\
+        Version: 1.6  May 28, 2025', formatter_class=argparse.RawTextHelpFormatter)
+    subparsers = parser.add_subparsers()
+
+    parser_config = subparsers.add_parser('config', help='Create Configuration File')
+    parser_config.add_argument('-v', "--genomeVersion", required=True, type=str, help='Genome Build Version')
+    parser_config.add_argument('-s', "--species", required=True, type=str, help='Species',choices=['human','mouse'])
+    parser_config.add_argument('-f', "--genomeFasta", required=True, type=str, help='Genome Sequence Fasta File')
+    parser_config.add_argument('-E', "--ERCC", required=True, type=str, help='ERCC Spikein Fasta File')
+    parser_config.add_argument('-a', "--genomeAnno", required=True, type=str, help='Genome Annotation File GFF3 Format')
+    parser_config.add_argument('-r', "--rmsk", required=True, type=str, help='RepeatMask Annotation Downloaded from UCSC')
+    parser_config.add_argument('-o', "--outpath", required=True, type=str, help='Annotation File Output Path for Mapit')
+    parser_config.add_argument("--dbSNP", required=True, type=str, help='VCF File of NCBI dbSNP')
+    parser_config.add_argument("--1000Genomes", required=True, type=str, help='Directory of VCF Files of 1000Genomes Splited by Chromosomes')
+    parser_config.add_argument("--EVSEVA", required=True, type=str, help='Directory of VCF Files of EVS/EVA Splited by Chromosomes')
+    parser_config.add_argument("--hisat2Index", type=str, help='Path to "hisat2-build" Index, if You\'ve Built Beforehand')
+    parser_config.add_argument("--Reditools", required=True, type=str, help='Directory of RediTools2.0 software')
+    parser_config.add_argument("--FLARE", required=True, type=str, help='Directory of FLARE software')
+    parser_config.add_argument("--overwrite",action="store_true",help="Overwrite Config File or not.")
+    parser_config.set_defaults(func=config)
+
+    parser_mapping = subparsers.add_parser('mapping', help='Two-Round Unique Mapping RNA-seq Reads')
+    parser_mapping.add_argument('-v', "--genomeVersion", required=True, type=str, help='Genome Build Version')
+    parser_mapping.add_argument("--fq", type=str, required=True,help='RNA-seq Paired-end Fastq R1 File or Single-end Fastq File')
+    parser_mapping.add_argument("--fq2", type=str, help='RNA-seq Paired-end Fastq R2 File')
+    parser_mapping.add_argument("--rna-strandness", required=True, type=str, help='The strand-specific information used for HISAT2 mapping. \
+        For single-end reads, use F or R. For paired-end reads, use either FR or RF. \
+        Detailed descriptions of this option was available in HISAT2 manual (https://ccb.jhu.edu/software/hisat2/manual.shtml)',choices=['F','R','FR','RF'])
+    parser_mapping.add_argument('-n', "--sampleName", required=True, type=str, help='Directory name in output directory and the first prefix of file name for the mapping results')
+    parser_mapping.add_argument('-r', "--replicate",required=True, type=int, help='The 2nd prefix of file name for the mapping results')
+    parser_mapping.add_argument('-o', "--outpath", required=True, type=str, help='Output Path for Mapit Result (default: "./Mapit_result")',default="./Mapit_result")
+    parser_mapping.add_argument('-t', "--thread", type=int, help='Maximum threads used for computation. (default: 10)',default=10)
+    parser_mapping.add_argument("--ERCC", action='store_true', help='When ERCC spikein used, add this parameter. (default: False)')
+    parser_mapping.set_defaults(func=mapping)
+
+    parser_finetuning = subparsers.add_parser('finetuning', help='Fine Tuning Mapping to BAM File')
+    parser_finetuning.add_argument('-v', "--genomeVersion", required=True, type=str, help='Genome Build Version')
+    parser_finetuning.add_argument('-n', "--sampleName", required=True, type=str, help='Directory name in output directory and the first prefix of file name for the mapping results')
+    parser_finetuning.add_argument('-r', "--replicate",required=True, type=int, help='The 2nd prefix of file name for the mapping results')
+    parser_finetuning.add_argument('-o', "--outpath", required=True, type=str, help='Output Path for Mapit Result (default: "./Mapit_result")',default="./Mapit_result")
+    parser_finetuning.set_defaults(func=finetuning)
+
+    parser_callediting = subparsers.add_parser('callediting', help='Identify Editing Sites')
+    parser_callediting.add_argument('-v', "--genomeVersion", required=True, type=str, help='Genome Build Version')
+    parser_callediting.add_argument("--sampleList", required=True, type=str, help='Directory name for samples inputing in output directory. Use "," to combine.')
+    parser_callediting.add_argument('-o', "--outpath", required=True, type=str, help='Output Path for Mapit Result (default: "./Mapit_result")',default="./Mapit_result")
+    parser_callediting.add_argument("--prefix", required=True, type=str, help='Output Directory prefix in Mapit Result Dir')
+    parser_callediting.add_argument('-e', "--enzyme", required=True, type=str,choices=['ADAR','APOBEC','Both'], help='RNA-editing enzymes used. ADAR,APOBEC: MAPIT-seq (default: Both); ADAR: HyperTRIBE or TRIBE; APOBEC: STAMP',default="Both")
+    parser_callediting.add_argument('-t', "--thread", type=int, help='Maximum threads used for computation. (default: 10)',default=10)
+    parser_callediting.set_defaults(func=callediting)
+
+    parser_calltargets = subparsers.add_parser('calltargets', help='Perform Differential Editing Analysis to Call RBP targets')
+    parser_calltargets.add_argument('-v', "--genomeVersion", required=True, type=str, help='Genome Build Version')
+    parser_calltargets.add_argument("-i", "--inputEdit", required=True, type=str, help='Input RNA Edit Table File')
+    parser_calltargets.add_argument("-l", "--level",type=str,choices=['transcript','gene','Both'], help='Perform Differential Editing Analysis in transcript or gene(including intron) level',default="transcript")
+    parser_calltargets.add_argument("--treatName", required=True, type=str, help='Directory name for treatment samples in output directory')
+    parser_calltargets.add_argument("--controlName", required=True, type=str, help='Directory name for control samples in output directory')
+    parser_calltargets.add_argument('-o', "--outpath", required=True, type=str, help='Output Path for Mapit Result (default: "./Mapit_result")',default="./Mapit_result")
+    parser_calltargets.add_argument('-b', "--binSize", type=int, help='The length of bins that are split from transcripts. (default: 50)',default=50)
+    parser_calltargets.add_argument('-c', "--coverage", type=int, help='Minimun coverage for valid editing sites. (default: 10)',default=10)
+    parser_calltargets.add_argument("--supply-zero", action='store_true', help='Supply zero to non-editing bins. (default: False)')
+    parser_calltargets.add_argument('-p', "--pvalue", type=float, help='Maximum p-value for Poisson filter of editing sites. (default: 0.1)',default=0.1)
+    parser_calltargets.add_argument("--dropTreatRep", type=str, help='Replicate id for treatment samples in output directory. (e.g. 1,4,5)')
+    parser_calltargets.add_argument("--dropControlRep", type=str, help='Replicate id for control samples in output directory. (e.g. 1,4,5)')
+    parser_calltargets.add_argument("--singleCell", action='store_true', help='When a replicate represents a cell, add this parameter. (default: False)')
+    parser_calltargets.set_defaults(func=calltargets)
+
+    parser_prepare = subparsers.add_parser('prepare', help='Prepare files for SAILOR workflow')
+    parser_prepare.add_argument('-v', "--genomeVersion", required=True, type=str, help='Genome Build Version')
+    parser_prepare.add_argument('-n', "--sampleName", required=True, type=str, help='Directory name in output directory and the first prefix of file name for the mapping results')
+    parser_prepare.add_argument('-r', "--replicate",required=True, type=int, help='The 2nd prefix of file name for the mapping results')
+    parser_prepare.add_argument('-o', "--outpath", required=True, type=str, help='Output Path for Mapit Result (default: "./Mapit_result")',default="./Mapit_result")
+    parser_prepare.set_defaults(func=pre_sailor)
+    
+    parser_sailor = subparsers.add_parser('SAILOR', help='Identifying MAPIT editing using modified SAILOR workflow')
+    parser_sailor.add_argument('-v', "--genomeVersion", required=True, type=str, help='Genome Build Version')
+    parser_sailor.add_argument('-n', "--sampleName", required=True, type=str, help='Directory name in output directory and the first prefix of file name for the mapping results')
+    parser_sailor.add_argument('-r', "--replicate",required=True, type=int, help='The 2nd prefix of file name for the mapping results')
+    parser_sailor.add_argument('-c', "--coverage", type=int, help='Minimun coverage for valid editing sites. (default: 10)',default=10)
+    parser_sailor.add_argument('-o', "--outpath", required=True, type=str, help='Output Path for Mapit Result (default: "./Mapit_result")',default="./Mapit_result")
+    parser_sailor.add_argument('-t', "--thread", type=int, help='Maximum threads used for computation. (default: 10)',default=10)
+    parser_sailor.set_defaults(func=sailor_workflow)
+
+    parser_flare = subparsers.add_parser('FLARE', help='Identifying MAPIT editing clusters using FLARE workflow')
+    parser_flare.add_argument('-v', "--genomeVersion", required=True, type=str, help='Genome Build Version')
+    parser_flare.add_argument('-n', "--sampleName", required=True, type=str, help='Directory name in output directory and the first prefix of file name for the mapping results')
+    parser_flare.add_argument('-r', "--replicate",required=True, type=int, help='The 2nd prefix of file name for the mapping results')
+    parser_flare.add_argument("--regions", required=True, type=str, help='FLARE configuration directory of files for regions of the genome')
+    parser_flare.add_argument('-o', "--outpath", required=True, type=str, help='Output Path for Mapit Result (default: "./Mapit_result")',default="./Mapit_result")
+    parser_flare.add_argument('-t', "--thread", type=int, help='Maximum threads used for computation. (default: 10)',default=10)
+    parser_flare.add_argument('-e', "--edittype", required=True, type=str,choices=['AG','CT'], help='Editing types')
+    parser_flare.set_defaults(func=flare_workflow)
+
+    parser_hccluster = subparsers.add_parser('hc_cluster', help='Identifying high-confidence MAPIT editing clusters from FALRE')
+    parser_hccluster.add_argument('-v', "--genomeVersion", required=True, type=str, help='Genome Build Version')
+    parser_hccluster.add_argument('-n', "--sampleName", required=True, type=str, help='Directory name in output directory and the first prefix of file name for the mapping results')
+    parser_hccluster.add_argument('-o', "--outpath", required=True, type=str, help='Output Path for Mapit Result (default: "./Mapit_result")',default="./Mapit_result")
+    parser_hccluster.add_argument('-s', "--sloplength", required=True, type=int, help='Length of High-confidence clusters expanded for up- and down-stream sides',default=150)
+    parser_hccluster.set_defaults(func=hc_cluster)
+
+    args = parser.parse_args()
+    argsPrint(args)
+    checkSoftware()
+    args.func(args)
