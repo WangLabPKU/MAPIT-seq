@@ -26,23 +26,23 @@ Creating_conf(){
 
     if [ "$bwa_index" == "false" ]; then 
     bwa index ${genome_fasta} & 
-    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tCreating BWA index..."
+    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tCreating BWA index..." > /dev/tty
     fi
     if [ "$hisat2_index_s" == "false" ]; then 
     hisat2-build ${genome_fasta} ${hisat2_index} & 
-    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tCreating HISAT2 index..."
+    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tCreating HISAT2 index..." > /dev/tty
     fi
     if [ ! -f ${genome_fasta%.*}.dict ]; then 
     gatk CreateSequenceDictionary -R ${genome_fasta} & 
-    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tCreating GATK index..."
+    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tCreating GATK index..." > /dev/tty
     fi
     if [ ! -f ${genome_fasta}.fai ]; then 
     samtools faidx ${genome_fasta} & 
-    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tCreating FAI index..."
+    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tCreating FAI index..." > /dev/tty
     fi
     if [ ! -f ${gencode_gff3%.*}_all_spsites.bed ]; then 
     gffread ${gencode_gff3} -T | hisat2_extract_splice_sites.py - > ${gencode_gff3%.*}_all_spsites.bed
-    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tCreating HISAT2 file of splice sites index..."
+    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tCreating HISAT2 file of splice sites index..." > /dev/tty
     fi
     hisat2-build ${ERCC} ${ERCC}
 
@@ -107,10 +107,10 @@ Creating_conf(){
     flag=0
     for chr in ${chroms[@]}; do test -f ${annotation_path}/${genome_build_version}_SNP/dbSNP_split_chr/${chr}.gz || flag=1;done
     if [ ${flag} == 0 ]; then
-    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tSplited dbSNP files exist."
+    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tSplited dbSNP files exist." > /dev/tty
     else
     {
-    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tCreating dbSNP files..."
+    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tCreating dbSNP files..." > /dev/tty
     awk -v dir_SNP=${annotation_path}/${genome_build_version}_SNP/dbSNP_split_chr '{if(substr($1, 1, 1) == "#"){print $0 > dir_SNP"/../dbSNP_header"}else {gsub("MT","M"); print $0 > dir_SNP"/"$1}}' ${annotation_path}/${genome_build_version}_SNP/dbSNP_all_SNP.vcf
     pigz ${annotation_path}/${genome_build_version}_SNP/dbSNP_split_chr/chr*
     }
@@ -119,7 +119,7 @@ Creating_conf(){
     test -f ${annotation_path}/UCSC_RepeatMask_All_repetitive.bed  || awk '{print $6"\t"$7"\t"$8"\t"$11"\t"$12"\t"$10}' ${rmsk} |  awk -v nA=FAM_FRAM_FLAM_A_FLAM_C -v OFS="\t" '{gsub("?","",$5);if(($5=="SINE")&&(index(nA,$4)>0 || $4 ~ "Alu")) print $1,$2,$3,$4,"SINE_Alu",$6; else print $0}' >  ${annotation_path}/UCSC_RepeatMask_All_repetitive.bed 
 
     wait
-    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tALL done! Checking..."
+    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tALL done! Checking..." > /dev/tty
 }
 
 rRNA_deplete_HISAT2_BWA_mapping(){
@@ -160,7 +160,7 @@ rRNA_deplete_HISAT2_BWA_mapping(){
         rm ${rRNA_map}/${rep_name}-rRNA_unmapped_sort.bam
         fq1=${rRNA_map}/${rep_name}_R1.fastq.gz
         fq2=${rRNA_map}/${rep_name}_R2.fastq.gz
-        echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tremove abundantRNA done! "
+        echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tremove abundantRNA done! " > /dev/tty
 
         ### 1. HISAT2 2 mismatches mapping
         hisat2  --rna-strandness ${stranded} --no-mixed --secondary --no-temp-splicesite --known-splicesite-infile ${annotation_splice_sites} --no-softclip --score-min L,-16,0 --mp 7,7 --rfg 0,7 --rdg 0,7 --max-seeds 20 -k 10 --dta -t \
@@ -172,7 +172,7 @@ rRNA_deplete_HISAT2_BWA_mapping(){
                     else{print $0 > "'${HISAT_map}/${rep_name}_unique_mismatch_over2.sam'"} } else {print $0 " not have XM tag"} } }' > ${HISAT_map}/${rep_name}_HISAT2.header
         samtools view -@ ${thread} -h -f 4 ${HISAT_map}/${rep_name}_HISAT2_mapped.sam | cat - ${HISAT_map}/${rep_name}_unique_mismatch_over2.sam | samtools view -@ ${thread} -bh  | samtools sort -@ ${thread} -n  -o ${HISAT_map}/${rep_name}_HISAT2_mapped-unmapped_sorted.bam
         samtools fastq -@ ${thread} -1 ${HISAT_map}/${rep_name}_unmapped_1.fastq.gz -2 ${HISAT_map}/${rep_name}_unmapped_2.fastq.gz -s ${HISAT_map}/${rep_name}_unmapped_singleton.fq  ${HISAT_map}/${rep_name}_HISAT2_mapped-unmapped_sorted.bam
-        echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tHISAT2 mapping done! "
+        echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tHISAT2 mapping done! " > /dev/tty
 
         ### 2. ERCC / BWA 0.04 per bp mismatches mapping
         test -d $bwa_map||mkdir -p $bwa_map
@@ -180,7 +180,7 @@ rRNA_deplete_HISAT2_BWA_mapping(){
         hisat2 -q -p ${thread} --no-spliced-alignment --end-to-end --no-mixed --secondary --rdg 10000,10000 --rfg 10000,10000 \
               -x ${ERCC_index_hisat2} -1  ${HISAT_map}/${rep_name}_unmapped_1.fastq.gz  -2 ${HISAT_map}/${rep_name}_unmapped_2.fastq.gz \
               --un-conc-gz ${bwa_map}/${rep_name}_ERCC_un_conc_%.fastq.gz -S ${bwa_map}/${rep_name}_ERCC.sam &> ${HISAT_map}/${rep_name}_ERCC.summary
-        echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tMapped to ERCC done! "
+        echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tMapped to ERCC done! " > /dev/tty
         samtools view -hb -F 4 -@ 20 ${bwa_map}/${rep_name}_ERCC.sam | samtools sort -@ 20 -o ${bwa_map}/${rep_name}_ERCC.bam
         rm ${bwa_map}/${rep_name}_ERCC.sam
         samtools view ${bwa_map}/${rep_name}_ERCC.bam  | cut -f 3 | uniq -c > ${bwa_map}/${rep_name}_ERCC.count.txt
@@ -196,7 +196,7 @@ rRNA_deplete_HISAT2_BWA_mapping(){
         samtools fastq -@ ${thread}  ${rRNA_map}/${rep_name}-rRNA_unmapped_sort.bam | pigz - > ${rRNA_map}/${rep_name}.fastq.gz
         rm ${rRNA_map}/${rep_name}-rRNA_unmapped_sort.bam
         fq0=${rRNA_map}/${rep_name}.fastq.gz
-        echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tremove abundantRNA done! "
+        echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tremove abundantRNA done! " > /dev/tty
 
         ### 1. HISAT2 2 mismatches mapping 
         hisat2 --rna-strandness ${stranded} --no-mixed --secondary --no-temp-splicesite --known-splicesite-infile ${annotation_splice_sites} --no-softclip --score-min L,-16,0 --mp 7,7 --rfg 0,7 --rdg 0,7 --max-seeds 20 -k 10 --dta -t \
@@ -208,14 +208,14 @@ rRNA_deplete_HISAT2_BWA_mapping(){
                     else{print $0 >> "'${HISAT_map}/${rep_name}_unique_mismatch_over2.sam'"} } else {print $0 " not have XM tag"} } }' > ${HISAT_map}/${rep_name}_HISAT2.header
         samtools view -@ ${thread} -h -f 4 ${HISAT_map}/${rep_name}_HISAT2_mapped.sam | cat - ${HISAT_map}/${rep_name}_unique_mismatch_over2.sam | samtools view -@ ${thread} -bh  | samtools sort -@ ${thread} -n  -o ${HISAT_map}/${rep_name}_HISAT2_unmapped_sort.bam
         samtools fastq -@ ${thread}  ${HISAT_map}/${rep_name}_HISAT2_unmapped_sort.bam | pigz -  > ${HISAT_map}/${rep_name}_HISAT2_unmapped.fastq.gz
-        echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tHISAT2 mapping done! "
+        echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tHISAT2 mapping done! " > /dev/tty
 
         ### 2. ERCC / BWA 0.04 per bp mismatches mapping
         if [ "$ERCC_spikein" == "True" ];then
         hisat2 -q -p ${thread} --no-spliced-alignment --end-to-end --no-mixed --secondary --rdg 10000,10000 --rfg 10000,10000 \
               -x ${ERCC_index_hisat2} -U ${HISAT_map}/${rep_name}_HISAT2_unmapped.fastq.gz \
               --un-gz ${bwa_map}/${rep_name}_ERCC_unmapped.fastq.gz -S ${bwa_map}/${rep_name}_ERCC.sam &> ${HISAT_map}/${rep_name}_ERCC.summary
-        echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tMapped to ERCC done! "
+        echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tMapped to ERCC done! " > /dev/tty
         samtools view -hb -F 4 -@ 20 ${bwa_map}/${rep_name}_ERCC.sam | samtools sort -@ 20 -o ${bwa_map}/${rep_name}_ERCC.bam
         rm ${bwa_map}/${rep_name}_ERCC.sam
         samtools view ${bwa_map}/${rep_name}_ERCC.bam | cut -f 3 | uniq -c > ${bwa_map}/${rep_name}_ERCC.count.txt
@@ -232,14 +232,14 @@ rRNA_deplete_HISAT2_BWA_mapping(){
     samtools  view -@ ${thread} -H ${bwa_map}/${rep_name}_unmapped.sort.bam > ${bwa_map}/${rep_name}_bwa.header
 
     rm ${bwa_map}/${rep_name}_bwa_mapped.sam ${HISAT_map}/${rep_name}_HISAT2_mapped.sam ${bwa_map}/${rep_name}_bwa_unique_mis6_mapq0.sam
-    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tBWA mapping done! "
+    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tBWA mapping done! " > /dev/tty
     sleep 1
     
     cat ${bwa_map}/${rep_name}_bwa.header ${HISAT_map}/${rep_name}_unique_mismatch2.sam | samtools view -@ ${thread} -bT ${genome_fasta} - | samtools sort -@ ${thread} - -o ${combine_path}/${rep_name}_accepted_hits.sort.bam
     samtools merge -@ ${thread} -f ${combine_path}/${rep_name}_combine.bam ${combine_path}/${rep_name}_accepted_hits.sort.bam ${bwa_map}/${rep_name}_unmapped.sort.bam
     samtools index -@ ${thread} ${combine_path}/${rep_name}_combine.bam
     rm ${HISAT_map}/${rep_name}_unique_mismatch2.sam 
-    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tHISAT2-BWA combining done! "
+    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tHISAT2-BWA combining done! " > /dev/tty
 }
 
 Filtering_SNV(){
@@ -266,7 +266,7 @@ Filtering_SNV(){
         if [ -e "${SNP_path}/${chr}.gz" ];then
         awk 'FILENAME==ARGV[1]{array_tmp[$1":"$2]=1}FILENAME==ARGV[2]{if (! array_tmp[$1":"$2] ){print}}'  <(zcat ${SNP_path}/${chr}.gz) ${work_path}/tmp_deknownSNP/chr/${chr} >${work_path}/tmp_deknownSNP/tmp_result/${input_file_basename}_${chr} 
         else
-        echo -e "\033[33m[WARN]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\t$chr in $input_file do not exists in $SNP_path"
+        echo -e "\033[33m[WARN]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\t$chr in $input_file do not exists in $SNP_path" > /dev/tty
         cp ${work_path}/tmp_deknownSNP/chr/${chr} ${work_path}/tmp_deknownSNP/tmp_result/${input_file_basename}_${chr} 
         fi
         echo >&3
@@ -307,12 +307,12 @@ Calling_SNV_filtering_out_knownSNP(){
     for ((i=1;i<=$processing;i++)); do echo >&3; done
 
     chroms=($(cut -f 1 $intervals ))
-    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tStart to HaplotypeCaller splited by chromosomes."
+    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tStart to HaplotypeCaller splited by chromosomes." > /dev/tty
     for chr in ${chroms[@]}; do 
     read -u3
     {
         gatk HaplotypeCaller -R ${genome_fasta} -I ${sampleInput//,/" -I "} --minimum-mapping-quality 0 --dont-use-soft-clipped-bases true  -stand-call-conf 0 --force-active true --all-site-pls --heterozygosity 1 --sample-ploidy 4 -O ${vcf_split_chr_path}/${chr}_${vcf_inter_name}.vcf --intervals ${chr} 
-        echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\t$chr HaplotypeCaller finished."
+        echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\t$chr HaplotypeCaller finished." > /dev/tty
         echo >&3
     }&
     done
@@ -322,16 +322,16 @@ Calling_SNV_filtering_out_knownSNP(){
     for chr in ${chroms[@]}; do merge_vcfs=${merge_vcfs}" -I ${vcf_split_chr_path}/${chr}_${vcf_inter_name}.vcf"; done
     gatk MergeVcfs ${merge_vcfs} -O ${vcf_combine_prefix}.vcf.gz 
     gatk SelectVariants -select-type SNP -R ${genome_fasta} -V ${vcf_combine_prefix}.vcf.gz -O ${vcf_combine_prefix}_SNP.vcf
-    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tSNVs were selected from all variants."
+    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tSNVs were selected from all variants." > /dev/tty
 
-    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tStart to filter out known SNPs."
+    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tStart to filter out known SNPs." > /dev/tty
     test -d ${vcf_filter_path} || mkdir -p ${vcf_filter_path}
     Filtering_SNV ${vcf_combine_prefix}_SNP.vcf ${vcf_deSNP_prefix}dbSNP.vcf ${SNP_dbSNP_divided_by_chromosome} ${thread}
-    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tKnown SNPs from dbSNP were filtered out."
+    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tKnown SNPs from dbSNP were filtered out." > /dev/tty
     Filtering_SNV ${vcf_deSNP_prefix}dbSNP.vcf ${vcf_deSNP_prefix}dbSNP_1000genomes.vcf ${SNP_1000Genome_divided_by_chromosome} ${thread}
-    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tKnown SNPs from 1000Genomes were filtered out."
+    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tKnown SNPs from 1000Genomes were filtered out." > /dev/tty
     Filtering_SNV ${vcf_deSNP_prefix}dbSNP_1000genomes.vcf ${vcf_deSNP_prefix}dbSNP_1000genomes_EVS.vcf ${SNP_EVS_divided_by_chromosome} ${thread}
-    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tKnown SNPs from EVS or EVA were filtered out."
+    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tKnown SNPs from EVS or EVA were filtered out." > /dev/tty
     grep "#CHROM" ${vcf_combine_prefix}_SNP.vcf | head -n 1 | cat - ${vcf_deSNP_prefix}dbSNP_1000genomes_EVS.vcf > ${vcf_deSNP_prefix}dbSNP_1000genomes_EVS_Header.vcf
 }
 
@@ -345,7 +345,7 @@ GE_Annotate(){
     test -d ${output_path}/Anno || mkdir -p ${output_path}/Anno
     local output_prefix="${output_path}/Anno/${gencode_gff3_file%.*}"
 
-    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tCreating annotation files of gene elements."
+    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tCreating annotation files of gene elements." > /dev/tty
     test -f ${output_prefix}_gene.bed || awk -v OFS="\t" '{split($9,a,";");split(a[2],d,"=");split(a[3],b,"=");split(a[4],c,"=");if($3=="gene") print $1,$4-1,$5,d[2]":"c[2],b[2],$7}' ${gencode_gff3} > ${output_prefix}_gene.bed &
     test -f ${output_prefix}_exon.bed || awk -v OFS="\t" '{split($9,a,";");split(a[10],d,"=");split(a[7],b,"=");split(a[3],c,"=");if($3=="exon") print $1,$4-1,$5,d[2]":"c[2],b[2],$7}' ${gencode_gff3} | grep -v retained_intron | bedtools sort -i | uniq > ${output_prefix}_exon.bed &
     test -f ${output_prefix}_CDS.bed  || awk -v OFS="\t" '{split($9,a,";");split(a[10],d,"=");split(a[7],b,"=");split(a[3],c,"=");if($3=="CDS") print $1,$4-1,$5,d[2]":"c[2],b[2],$7}' ${gencode_gff3} | grep -v retained_intron | bedtools sort -i | uniq > ${output_prefix}_CDS.bed &
@@ -354,7 +354,8 @@ GE_Annotate(){
     test -f ${output_prefix}_stopcodon.bed || awk -v OFS="\t" '{split($9,a,";");split(a[10],d,"=");split(a[3],e,"=");split(a[5],b,"=");split(a[7],c,"=");if($3=="stop_codon") print $1,$4-1,$5,d[2]":"e[2],c[2]":"b[2],$7 }'  ${gencode_gff3} | bedtools sort -i - | uniq > ${output_prefix}_stopcodon.bed &
     test -f ${output_prefix}_startcodon.bed || awk -v OFS="\t" '{split($9,a,";");split(a[10],d,"=");split(a[3],e,"=");split(a[5],b,"=");split(a[7],c,"=");if($3=="start_codon") print $1,$4-1,$5,d[2]":"e[2],c[2]":"b[2],$7 }'  ${gencode_gff3} | bedtools sort -i - | uniq > ${output_prefix}_startcodon.bed &
     wait
-
+    
+    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tAnnotating edit data with gene elements." > /dev/tty
     bedtools subtract -a ${output_prefix}_gene.bed -b ${output_prefix}_exon.bed -s > ${output_prefix}_intron.bed
     cat ${output_prefix}_5UTR.bed ${output_prefix}_CDS.bed ${output_prefix}_3UTR.bed > ${output_prefix}_mRNA.bed
     awk 'FILENAME==ARGV[1]{array_tmp[$4]=1}FILENAME==ARGV[2]{if (! array_tmp[$4] ){print}}' ${output_prefix}_mRNA.bed ${output_prefix}_exon.bed > ${output_prefix}_noncoding.bed
@@ -368,6 +369,7 @@ GE_Annotate(){
     bedtools intersect -a ${input_file%.*}_exon.bed -b ${output_prefix}_3UTR.bed -s -wa -wb | awk '{if(($10==$15)&&($9==$14)) print $0}' |  cut -f 1-10 | uniq > ${input_file%.*}_3UTR.bed
     bedtools intersect -a ${input_file%.*}_exon.bed -b ${output_prefix}_5UTR.bed -s -wa -wb | awk '{if(($10==$15)&&($9==$14)) print $0}' |  cut -f 1-10 | uniq > ${input_file%.*}_5UTR.bed
     bedtools intersect -a ${input_file%.*}_exon.bed -b ${output_prefix}_noncoding.bed -s -wa -wb | awk '{if(($10==$15)&&($9==$14)) print $0}' |  cut -f 1-10 | uniq > ${input_file%.*}_noncoding.bed
+    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tAnnotating done." > /dev/tty
 }
 
 Pre_for_SAILOR(){
@@ -380,19 +382,32 @@ Pre_for_SAILOR(){
     local FLARE_PATH=$7
     local Reditools_PATH=$8
 
+    # 0_MarkDuplicates
+    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tMarking duplicates." > /dev/tty
+    combine_bam=${Mapit_result}/3-Combine_bam/${Sample_name}/${Sample_name}_${Replicate}_combine.bam
+    dedupped_bam=${Mapit_result}/3-Combine_bam/${Sample_name}/${Sample_name}_${Replicate}_combine_dedupped.bam
+    ( test -f ${dedupped_bam} || test -f ${combine_bam} )|| (echo -e "\033[31m[ERROR]\033[0m\t\033[32m`date '+%a %b %d %H:%M:S %Y'`\033[0m\t"${combine_bam}" not exits. Run mapping first" > /dev/tty && exit 1)
+    test -f ${dedupped_bam} || picard MarkDuplicates -I ${combine_bam} -O ${dedupped_bam} \
+                                                     --CREATE_INDEX true --VALIDATION_STRINGENCY SILENT \
+                                                     -M ${Mapit_result}/3-Combine_bam/${Sample_name}/${Sample_name}_${Replicate}_MarkDuplicates_output.metrics \
+                                                     --REMOVE_DUPLICATES true 
+
     # 1_split_strands3.1-Split_strand
+    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tSpliting into positive/negative strand bam." > /dev/tty
     BAM_PREFIX=${Mapit_result}/3.1-Split_strand/${Sample_name}
     VAR_PREFIX=${Mapit_result}/4.1-Redi_sailor/${Sample_name}
     test -d ${BAM_PREFIX} || mkdir -p ${BAM_PREFIX}
     test -d ${VAR_PREFIX} || mkdir -p ${VAR_PREFIX}
-    samtools view -@ $NUM_CORES -F 1024 -hb ${Mapit_result}/3-Combine_bam/${Sample_name}/${Sample_name}_${Replicate}_combine_dedupped.bam \
-        -o ${BAM_PREFIX}/${Sample_name}_${Replicate}.bam 
+    #samtools view -@ $NUM_CORES -F 1024 -hb ${dedupped_bam} \
+    #    -o ${BAM_PREFIX}/${Sample_name}_${Replicate}.bam 
+    ln -s ${dedupped_bam} ${BAM_PREFIX}/${Sample_name}_${Replicate}.bam
     samtools index -@ $NUM_CORES ${BAM_PREFIX}/${Sample_name}_${Replicate}.bam 
     python ${FLARE_PATH}/workflow_sailor/scripts/split_strands.py --reverse-strand \
         -i ${BAM_PREFIX}/${Sample_name}_${Replicate}.bam  \
         -f ${BAM_PREFIX}/${Sample_name}_${Replicate}.fwd.bam \
         -r ${BAM_PREFIX}/${Sample_name}_${Replicate}.rev.bam
     # 2_index_reads
+    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tExtracting coverage of positive/negative strand bams following Reditools2.0 workflow." > /dev/tty
     samtools index -@ $NUM_CORES ${BAM_PREFIX}/${Sample_name}_${Replicate}.fwd.bam
     samtools index -@ $NUM_CORES ${BAM_PREFIX}/${Sample_name}_${Replicate}.rev.bam
 
@@ -402,6 +417,7 @@ Pre_for_SAILOR(){
     ${Reditools_PATH}/extract_coverage.sh ${BAM_PREFIX}/${Sample_name}_${Replicate}.rev.bam ${VAR_PREFIX}/${Sample_name}_${Replicate}.rev.coverage/ $SIZE_FILE
 
     # 3_bw (8 in raw sailor)
+    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tConverting positive/negative strand coverage into bigWig." > /dev/tty
     test -d ${Mapit_result}/3.1-Split_strand/chrom.sizes || cut -f 1,2 $SIZE_FILE > ${Mapit_result}/3.1-Split_strand/chrom.sizes
     bamCoverage -p $NUM_CORES -b ${BAM_PREFIX}/${Sample_name}_${Replicate}.fwd.bam --binSize 1 --normalizeUsing None -o ${BAM_PREFIX}/${Sample_name}_${Replicate}.fwd.sorted.bw 
     bamCoverage -p $NUM_CORES -b ${BAM_PREFIX}/${Sample_name}_${Replicate}.rev.bam --binSize 1 --normalizeUsing None -o ${BAM_PREFIX}/${Sample_name}_${Replicate}.rev.sorted.bw 
@@ -423,6 +439,7 @@ SAILOR_for_MAPIT(){
     BAM_PREFIX=${Mapit_result}/3.1-Split_strand/${Sample_name}
     VAR_PREFIX=${Mapit_result}/4.1-Redi_sailor/${Sample_name}
     ## 4.1 reditools 
+    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tRNA editing detecting." > /dev/tty
     for STRAND in fwd rev
     do
     SOURCE_BAM_FILE=${BAM_PREFIX}/${Sample_name}_${Replicate}.${STRAND}.bam
@@ -439,10 +456,12 @@ SAILOR_for_MAPIT(){
     done
     
     ## 4.2 select MAPIT editing
+    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tMAPIT editing filtering." > /dev/tty
     zcat ${VAR_PREFIX}/${Sample_name}_${Replicate}.fwd_parallel_table.txt.gz | awk '/AG|CT/{if($5>=10) print }' > ${VAR_PREFIX}/${Sample_name}_${Replicate}.fwd_parallel_table_dp10.txt
     zcat ${VAR_PREFIX}/${Sample_name}_${Replicate}.rev_parallel_table.txt.gz | awk '/GA|TC/{if($5>=10) print }' > ${VAR_PREFIX}/${Sample_name}_${Replicate}.rev_parallel_table_dp10.txt
     
     # 5 drop SNPs & format transforming and combine
+    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tRemoving SNPs in MAPIT editing." > /dev/tty
     FVAR_PREFIX=${Mapit_result}/5.1-Var_filter/${Sample_name}
     EDIT_PREFIX=${Mapit_result}/6.1-Edit_bedgraphs/${Sample_name}
     EDIT_PREFIX2=${Mapit_result}/6.2-Edit_bigwig/${Sample_name}
@@ -451,7 +470,7 @@ SAILOR_for_MAPIT(){
     test -d ${EDIT_PREFIX} || mkdir -p ${EDIT_PREFIX}
     for STRAND in fwd rev
     do
-    echo -e "[INFO]\t`date '+%a %b %d %H:%M:%S %Y'`\t"${Sample_name}_${Replicate}.${STRAND}"\tStart to filter out known SNPs."
+    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\t"${Sample_name}_${Replicate}.${STRAND}"\tStart to filter out known SNPs."
     Filtering_SNV ${VAR_PREFIX}/${Sample_name}_${Replicate}.${STRAND}_parallel_table_dp10.txt ${FVAR_PREFIX}/${Sample_name}_${Replicate}.${STRAND}.dbSNP.txt ${SNP_dbSNP_divided_by_chromosome} ${NUM_CORES}
     Filtering_SNV ${FVAR_PREFIX}/${Sample_name}_${Replicate}.${STRAND}.dbSNP.txt ${FVAR_PREFIX}/${Sample_name}_${Replicate}.${STRAND}.dbSNP_1000genomes.txt ${SNP_1000Genome_divided_by_chromosome} ${NUM_CORES}
     Filtering_SNV ${FVAR_PREFIX}/${Sample_name}_${Replicate}.${STRAND}.dbSNP_1000genomes.txt ${FVAR_PREFIX}/${Sample_name}_${Replicate}.${STRAND}.dbSNP_1000genomes_EVS.txt ${SNP_EVS_divided_by_chromosome} ${NUM_CORES}
@@ -463,18 +482,20 @@ SAILOR_for_MAPIT(){
     grep "A>G" ${EDIT_PREFIX}/${Sample_name}_${Replicate}.fwd.snpfiltered.ranked.bed > ${EDIT_PREFIX}/${Sample_name}_${Replicate}.fwd.AG.snpfiltered.ranked.bed
     grep "T>C" ${EDIT_PREFIX}/${Sample_name}_${Replicate}.rev.snpfiltered.ranked.bed > ${EDIT_PREFIX}/${Sample_name}_${Replicate}.rev.AG.snpfiltered.ranked.bed
     
+    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tCombining and reformating." > /dev/tty
     for EDIT in CT AG
     do
     python ${FLARE_PATH}/workflow_sailor/scripts/combine_and_reformat.py --fwd ${EDIT_PREFIX}/${Sample_name}_${Replicate}.fwd.${EDIT}.snpfiltered.ranked.bed \
-                                                                                  --rev ${EDIT_PREFIX}/${Sample_name}_${Replicate}.rev.${EDIT}.snpfiltered.ranked.bed \
-                                                                                  --output ${EDIT_PREFIX}/${Sample_name}_${Replicate}.combined.${EDIT}.snpfiltered.ranked.bed
+                                                                         --rev ${EDIT_PREFIX}/${Sample_name}_${Replicate}.rev.${EDIT}.snpfiltered.ranked.bed \
+                                                                         --output ${EDIT_PREFIX}/${Sample_name}_${Replicate}.combined.${EDIT}.snpfiltered.ranked.bed
     python ${FLARE_PATH}/workflow_sailor/scripts/edit_fraction_bedgraph.py ${EDIT_PREFIX}/${Sample_name}_${Replicate}.combined.${EDIT}.snpfiltered.ranked.bed \
-                                                                                    ${EDIT_PREFIX}/${Sample_name}_${Replicate}.${EDIT}.edit_fraction.bedgraph
+                                                                           ${EDIT_PREFIX}/${Sample_name}_${Replicate}.${EDIT}.edit_fraction.bedgraph
     awk -v OFS="\t" '{split($5,a,","); if(($4>0.9)&&(a[1]/a[2]<0.7)) print}' ${EDIT_PREFIX}/${Sample_name}_${Replicate}.combined.${EDIT}.snpfiltered.ranked.bed > ${EDIT_PREFIX}/${Sample_name}_${Replicate}.combined.${EDIT}.snpfiltered.ranked.score0.9.bed
     awk -v OFS="\t" '{split($5,a,","); if(($4>0.5)&&(a[1]/a[2]<0.7)) print}' ${EDIT_PREFIX}/${Sample_name}_${Replicate}.combined.${EDIT}.snpfiltered.ranked.bed > ${EDIT_PREFIX}/${Sample_name}_${Replicate}.combined.${EDIT}.snpfiltered.ranked.score0.5.bed
     bedtools sort -i ${EDIT_PREFIX}/${Sample_name}_${Replicate}.${EDIT}.edit_fraction.bedgraph > ${EDIT_PREFIX2}/${Sample_name}_${Replicate}.${EDIT}.edit_fraction.sorted.bedgraph
     bedGraphToBigWig ${EDIT_PREFIX2}/${Sample_name}_${Replicate}.${EDIT}.edit_fraction.sorted.bedgraph ${Mapit_result}/3.1-Split_strand/chrom.sizes ${EDIT_PREFIX2}/${Sample_name}_${Replicate}.${EDIT}.edit_fraction.sorted.bw
     done
+    echo -e "\033[34m[INFO]\033[0m\t\033[32m`date '+%a %b %d %H:%M:%S %Y'`\033[0m\tDone." > /dev/tty
 }
 
 FLARE_for_MAPIT(){
@@ -487,17 +508,43 @@ FLARE_for_MAPIT(){
     local NUM_CORES=$7
     local FLARE_PATH=$8
     
-    json_file=${Mapit_result}/7-FLARE_for_MAPIT/${Sample_name}/${Sample_name}_${Replicate}_${EDIT_TYPE}1.json
+    test -d ${Mapit_result}/7-FLARE_for_MAPIT/${Sample_name}/ || mkdir -p ${Mapit_result}/7-FLARE_for_MAPIT/${Sample_name}/
+    json_file=${Mapit_result}/7-FLARE_for_MAPIT/${Sample_name}/${Sample_name}_${Replicate}_${EDIT_TYPE}.json
     if [ $EDIT_TYPE == "CT" ];then
         score=0.5
     elif [ $EDIT_TYPE == "AG" ];then
         score=0.9
     fi
     
-    awk -v sample=${Sample_name} -v rep=${Replicate} -v path=${Mapit_result} -v genome=${REFERENCE} -v regions=${FLARE_REGIONS} -v edittype=${EDIT_TYPE} -v X=${score} \
-        '{gsub(/sample/,sample,$0);gsub(/replicate/,rep,$0);gsub(/path/,path,$0);gsub(/edittype/,edittype,$0);gsub("0.X",X,$0);gsub(/genome.fa/,genome,$0);gsub(/FLARE_regions/,regions,$0);
+    test -f ${json_file} || awk -v sample=${Sample_name} -v rep=${Replicate} -v path=${Mapit_result} -v genome=${REFERENCE} -v regions=${FLARE_REGIONS} -v edittype=${EDIT_TYPE} -v X=${score} \
+        '{gsub(/sample/,sample,$0);gsub(/replicate/,rep,$0);gsub(/path/,path,$0);gsub(/edittype/,edittype,$0);gsub(/0.X/,X,$0);gsub(/genome.fa/,genome,$0);gsub(/FLARE_regions/,regions,$0);
          print}' ${MYDIR}/../conf/FLARE_setting.json > ${json_file}
     snakemake --snakefile ${FLARE_PATH}/workflow_FLARE/Snakefile --configfile ${json_file} -j ${NUM_CORES}
+}
+
+HC_cluster(){
+    local Mapit_result=$1
+    local Sample_name=$2
+    local slop_length=$3
+    FLARE_dir=${Mapit_result}"/7-FLARE_for_MAPIT/"
+    hc_dir=${Mapit_result}"/7-FLARE_for_MAPIT/confident_clusters"
+    test -d ${hc_dir} || mkdir -p ${hc_dir}
+
+    for EDIT in CT AG
+    do
+    bedtools intersect -a ${FLARE_dir}/${Sample_name}/${EDIT}/FLARE/${Sample_name}_1_${EDIT}/${Sample_name}_1_${EDIT}_merged_sorted_peaks.fdr_0.1.d_15.merged.bed \
+                    -b ${FLARE_dir}/${Sample_name}/${EDIT}/FLARE/${Sample_name}_2_${EDIT}/${Sample_name}_2_${EDIT}_merged_sorted_peaks.fdr_0.1.d_15.merged.bed \
+                    -s -wa -u > ${hc_dir}/${Sample_name}_1_${EDIT}.bed
+    bedtools intersect -b ${FLARE_dir}/${Sample_name}/${EDIT}/FLARE/${Sample_name}_1_${EDIT}/${Sample_name}_1_${EDIT}_merged_sorted_peaks.fdr_0.1.d_15.merged.bed \
+                    -a ${FLARE_dir}/${Sample_name}/${EDIT}/FLARE/${Sample_name}_2_${EDIT}/${Sample_name}_2_${EDIT}_merged_sorted_peaks.fdr_0.1.d_15.merged.bed \
+                    -s -wa -u > ${hc_dir}/${Sample_name}_2_${EDIT}.bed
+    cat ${hc_dir}/${Sample_name}_1_${EDIT}.bed ${hc_dir}/${Sample_name}_2_${EDIT}.bed \
+    | bedtools sort -i -  | bedtools merge -i - -s -c 4,5,6,7 -o collapse,collapse,distinct,collapse > ${hc_dir}/${Sample_name}.${EDIT}.bed
+    done
+
+    bedtools slop -i ${hc_dir}/${Sample_name}.AG.bed -g ${Mapit_result}/3.1-Split_strand/chrom.sizes -b 100 | bedtools intersect -a ${hc_dir}/${Sample_name}.CT.bed -b - -s -wa -u > ${hc_dir}/${Sample_name}.highconfidence.bed
+    #cat ${hc_dir}/${Sample_name}.AG.bed ${hc_dir}/${Sample_name}.CT.bed | bedtools sort -i - | bedtools merge -i - -s -c 4,5,6,7 -o collapse,collapse,distinct,collapse > ${hc_dir}/${Sample_name}.merge.bed
+    awk -v OFS="\t" '{center=int(($2+$3)/2);print $1,center-1,center,$4,$5,$6}' ${hc_dir}/${Sample_name}.highconfidence.bed | bedtools slop -i - -g ${Mapit_result}/3.1-Split_strand/chrom.sizes -b ${slop_length} > ${hc_dir}/${Sample_name}.highconfidence.slop${slop_length}.bed
 }
 
 "$@"

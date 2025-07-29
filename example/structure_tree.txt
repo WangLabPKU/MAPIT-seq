@@ -1,0 +1,185 @@
+Mapit_result/
+├── 0-Remove_rRNA
+│   └── G3 #Paired-end reads after rRNA removal
+│       ├── G3_1_R1.fastq.gz
+│       ├── G3_1_R2.fastq.gz
+│       └── G3_1_singleton.fq
+├── 1-HISAT_map
+│   └── G3
+│       ├── G3_1_HISAT2.header
+│       ├── G3_1_HISAT2_mapped.summary
+│       ├── G3_1_HISAT2_mapped-unmapped_sorted.bam
+│       ├── G3_1_unmapped_1.fastq.gz
+│       ├── G3_1_unmapped_2.fastq.gz
+│       └── G3_1_unmapped_singleton.fq
+├── 2-BWA_map
+│   └── G3
+│       ├── G3_1_bwa.header
+│       └── G3_1_unmapped.sort.bam
+├── 3.1-Split_strand
+│   ├── chrom.sizes
+│   └── G3
+│       ├── G3_1.bam
+│       ├── G3_1.bam.bai
+│       ├── G3_1.fwd.bam
+│       ├── G3_1.fwd.bam.bai
+│       ├── G3_1.fwd.sorted.bw
+│       ├── G3_1.rev.bam
+│       ├── G3_1.rev.bam.bai
+│       ├── G3_1.rev.sorted.bw
+├── 3-Combine_bam
+│   ├── G3
+│   │   ├── G3_1_accepted_hits.sort.bam
+│   │   ├── G3_1_ApplyBQSR.log
+│   │   ├── G3_1_BaseRecalibrator.log
+│   │   ├── G3_1_combine.bam
+│   │   ├── G3_1_combine.bam.bai
+│   │   ├── G3_1_combine_dedupped.bai
+│   │   ├── G3_1_combine_dedupped.bam
+│   │   ├── G3_1_combine_dedupped_split.bai
+│   │   ├── G3_1_combine_dedupped_split.bam
+│   │   ├── G3_1_combine_dedupped_split_recal.bai
+│   │   ├── G3_1_combine_dedupped_split_recal.bam
+│   │   ├── G3_1_combine_dedupped_split_recal_gatk4.grv
+│   │   ├── G3_1_combine_dedupped_split_recal.stat
+│   │   ├── G3_1_combine_MarkDuplicates_output.metrics
+│   │   ├── G3_1_MarkDuplicates.log
+│   │   └── G3_1_SplitNCigarReads.log
+│   └── G3_1_Mapping.log
+├── 4.1-Redi_sailor
+│   └── G3
+│       ├── G3_1.fwd.coverage
+│       │   ├── chr1
+│       │   ├── ...
+│       │   ├── chrY
+│       │   ├── G3_1.fwd.cov
+│       │   └── G3_1.fwd-coverage-chronometer.txt
+│       ├── G3_1.fwd_parallel_table_dp10.txt
+│       ├── G3_1.fwd_parallel_table.txt.gz
+│       ├── G3_1.fwd_parallel_table.txt.gz.tbi
+│       ├── G3_1.rev.coverage
+│       │   ├── chr1
+│       │   ├── ...
+│       │   ├── chrY
+│       │   ├── G3_1.rev.cov
+│       │   └── G3_1.rev-coverage-chronometer.txt
+│       ├── G3_1.rev_parallel_table_dp10.txt
+│       ├── G3_1.rev_parallel_table.txt.gz
+│       └── G3_1.rev_parallel_table.txt.gz.tbi
+├── 4-Var_calling
+│   ├── RBP
+│   │   ├── chr1:1-124478211_HaplotypeCaller_BQdefault_MAPQ0.vcf
+│   │   ├── chr1:1-124478211_HaplotypeCaller_BQdefault_MAPQ0.vcf.idx
+│   │   ├── ...
+│   │   ├── chrY_HaplotypeCaller_BQdefault_MAPQ0.vcf
+│   │   └── chrY_HaplotypeCaller_BQdefault_MAPQ0.vcf.idx
+│   ├── RBP_CallingSNV.log
+│   ├── RBP_HaplotypeCaller_BQdefault_MAPQ0_SNP.vcf
+│   ├── RBP_HaplotypeCaller_BQdefault_MAPQ0_SNP.vcf.idx
+│   ├── RBP_HaplotypeCaller_BQdefault_MAPQ0.vcf.gz
+│   ├── RBP_HaplotypeCaller_BQdefault_MAPQ0.vcf.gz.tbi
+│   ├── RBP_input.json
+│   └── RBP.intervals
+├── 5.1-Var_filter
+│   └── G3
+│       ├── G3_1.fwd.dbSNP_1000genomes_EVS.txt
+│       ├── G3_1.fwd.dbSNP_1000genomes.txt
+│       ├── G3_1.fwd.dbSNP.txt
+│       ├── G3_1.rev.dbSNP_1000genomes_EVS.txt
+│       ├── G3_1.rev.dbSNP_1000genomes.txt
+│       └── G3_1.rev.dbSNP.txt
+├── 5-Var_filter
+│   ├── RBP_HaplotypeCaller_BQdefault_MAPQ0_deAllSNP_dbSNP_1000genomes_EVS_Header.vcf
+│   ├── RBP_HaplotypeCaller_BQdefault_MAPQ0_deAllSNP_dbSNP_1000genomes_EVS.vcf
+│   ├── RBP_HaplotypeCaller_BQdefault_MAPQ0_deAllSNP_dbSNP_1000genomes.vcf
+│   └── RBP_HaplotypeCaller_BQdefault_MAPQ0_deAllSNP_dbSNP.vcf
+├── 6.1-Edit_bedgraphs
+│   └── G3
+│       ├── G3_1.AG.edit_fraction.bedgraph
+│       ├── G3_1.combined.AG.snpfiltered.ranked.bed
+│       ├── G3_1.combined.AG.snpfiltered.ranked.score0.5.bed
+│       ├── G3_1.combined.AG.snpfiltered.ranked.score0.9.bed
+│       ├── G3_1.combined.CT.snpfiltered.ranked.bed
+│       ├── G3_1.combined.CT.snpfiltered.ranked.score0.5.bed
+│       ├── G3_1.combined.CT.snpfiltered.ranked.score0.9.bed
+│       ├── G3_1.CT.edit_fraction.bedgraph
+│       ├── G3_1.fwd.AG.snpfiltered.ranked.bed
+│       ├── G3_1.fwd.CT.snpfiltered.ranked.bed
+│       ├── G3_1.fwd.snpfiltered.ranked.bed
+│       ├── G3_1.rev.AG.snpfiltered.ranked.bed
+│       ├── G3_1.rev.CT.snpfiltered.ranked.bed
+│       └── G3_1.rev.snpfiltered.ranked.bed
+├── 6.2-Edit_bigwig
+│   └── G3
+│       ├── G3_1.AG.edit_fraction.sorted.bedgraph
+│       ├── G3_1.AG.edit_fraction.sorted.bw
+│       ├── G3_1.CT.edit_fraction.sorted.bedgraph
+│       └── G3_1.CT.edit_fraction.sorted.bw
+├── 6-Edit_calling
+│   ├── RBP
+│   │   ├── Anno
+│   │   │   ├── gencode.v40.pri.annotation_3UTR.bed
+│   │   │   ├── gencode.v40.pri.annotation_5UTR.bed
+│   │   │   ├── gencode.v40.pri.annotation_CDS.bed
+│   │   │   ├── gencode.v40.pri.annotation_exon.bed
+│   │   │   ├── gencode.v40.pri.annotation_gene.bed
+│   │   │   ├── gencode.v40.pri.annotation_intron.bed
+│   │   │   ├── gencode.v40.pri.annotation_noncoding.bed
+│   │   │   ├── gencode.v40.pri.annotation_startcodon.bed
+│   │   │   └── gencode.v40.pri.annotation_stopcodon.bed
+│   │   ├── RBP_Edit.bed
+│   │   ├── RBP_Edit_density.tsv
+│   │   ├── RBP_Edit_GE.bed
+│   │   ├── RBP_Edit_GE_RPE.bed
+│   │   ├── RBP_Edit_GE_RPE_DATA.tsv
+│   │   └── RBP_EditSeq.txt
+│   └── RBPG3
+│       ├── G3vsWI_bs50_Targets_genefull_level.tsv
+│       ├── G3vsWI_bs50_Targets_transcript_level.tsv
+│       ├── G3vsWI_DATA.tsv
+│       └── G3vsWI_DATA_genefull.tsv
+└── 7-FLARE_for_MAPIT
+    ├── confident_clusters
+    │   ├── G3_1_AG.bed
+    │   ├── G3_1_CT.bed
+    │   ├── G3_2_AG.bed
+    │   ├── G3_2_CT.bed
+    │   ├── G3.AG.bed
+    │   ├── G3.CT.bed
+    │   ├── G3.highconfidence.bed
+    │   └── G3.highconfidence.slop150.bed
+    └── G3
+        ├── AG
+        │   ├── bash_scripts
+        │   │   └── G3_1_AG
+        │   ├── bedgraphs
+        │   │   └── G3_1_AG_editc.bedgraph
+        │   ├── editc_outputs
+        │   │   ├── G3_1_AG
+        │   │   ├── G3_1_AG_edit_c_for_all_regions.tsv
+        │   │   └── G3_1_AG_filtered_regions.tsv
+        │   ├── FLARE
+        │   │   └── G3_1_AG
+        │   │       ├── G3_1_AG_all_regions_with_fdr.tsv
+        │   │       ├── G3_1_AG.fdr_0.1.bed
+        │   │       ├── G3_1_AG_merged_sorted_peaks.fdr_0.1.d_15.merged.bed
+        │   │       └── G3_1_AG_merged_sorted_peaks.fdr_0.1.d_15.regions
+        │   └── outs
+        ├── CT
+        │   ├── bash_scripts
+        │   │   └── G3_1_CT
+        │   ├── bedgraphs
+        │   │   └── G3_1_CT_editc.bedgraph
+        │   ├── editc_outputs
+        │   │   ├── G3_1_CT
+        │   │   ├── G3_1_CT_edit_c_for_all_regions.tsv
+        │   │   └── G3_1_CT_filtered_regions.tsv
+        │   ├── FLARE
+        │   │   └── G3_1_CT
+        │   │       ├── G3_1_CT_all_regions_with_fdr.tsv
+        │   │       ├── G3_1_CT.fdr_0.1.bed
+        │   │       ├── G3_1_CT_merged_sorted_peaks.fdr_0.1.d_15.merged.bed
+        │   │       └── G3_1_CT_merged_sorted_peaks.fdr_0.1.d_15.regions
+        │   └── outs
+        ├── G3_1_AG.json
+        └── G3_1_CT.json

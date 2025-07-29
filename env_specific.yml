@@ -1,0 +1,26 @@
+name: Mapit-seq
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - trim-galore==0.6.10
+  - bwa==0.7.17
+  - hisat2==2.2.1
+  - python==3.12.3
+  - pip==25.1.1
+  - picard==3.4.0
+  - samtools==1.21
+  - gatk4==4.6.2.0
+  - bedtools==2.31.1
+  - homer==5.1
+  - pigz==2.8
+  - gffread==0.12.7
+  - pip:
+    - pybedtools==0.12.0
+    - pysam==0.23.3
+    - pandas==2.3.0
+    - numpy==2.3.0
+    - cutadapt==5.1
+    - scipy
+    - statsmodels

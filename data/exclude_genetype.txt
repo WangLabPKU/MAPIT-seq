@@ -1,0 +1,14 @@
+miRNA
+snoRNA
+misc_RNA
+scaRNA
+ribozyme
+scRNA
+vault_RNA
+snRNA
+sRNA
+rRNA
+rRNA_pseudogene
+Mt_rRNA
+Mt_tRNA
+TEC

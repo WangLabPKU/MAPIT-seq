@@ -16,15 +16,15 @@ Mapit_dir=os.path.dirname(script_path)
 
 def argsPrint(args):
     width=max([15]+[len(str(vars(args)[k])) for k in list(vars(args).keys())[:-1]])
-    print(format("//"+"="*13, '<'), "MAPIT-seq Pipeline",format("="*(width-2)+"\\\\", '<'))
-    print(format("||", '<2'), format("subcommand", '>20'),": ", format('\033[34m'+sys.argv[1]+'\033[0m', '<%d'%(width+14)), format("||", '<2'))
+    print(format("//"+"="*13, '<'), "MAPIT-seq Pipeline",format("="*(width-2)+"\\\\", '<'), file=sys.__stderr__)
+    print(format("||", '<2'), format("subcommand", '>20'),": ", format('\033[34m'+sys.argv[1]+'\033[0m', '<%d'%(width+14)), format("||", '<2'), file=sys.__stderr__)
     for arg in list(vars(args).keys())[:-1]:
-        print(format("||", '<2'), format(arg, '>20'),": ", format('\033[34m'+str(getattr(args, arg))+'\033[0m', '<%d'%(width+14)), format("||", '<2'))
-    print(format("\\\\"+"="*(20+width+11)+"//", '<'))
+        print(format("||", '<2'), format(arg, '>20'),": ", format('\033[34m'+str(getattr(args, arg))+'\033[0m', '<%d'%(width+14)), format("||", '<2'), file=sys.__stderr__)
+    print(format("\\\\"+"="*(20+width+11)+"//", '<'), file=sys.__stderr__)
 
 def infoPrint(type,description):
     colorType={"ERROR":"31","WARN":"33","INFO":"34"}
-    print("\033[%sm[%s]\033[32m\t%s\033[0m\t%s"%(colorType[type],type,time.asctime( time.localtime(time.time())),description))
+    print("\033[%sm[%s]\033[32m\t%s\033[0m\t%s"%(colorType[type],type,time.asctime( time.localtime(time.time())),description), file=sys.__stderr__)
     if type=="ERROR":
         exit(1)
     
@@ -93,13 +93,13 @@ def config(args):
     confFile=Mapit_dir+'/conf/'+args.genomeVersion+'.json'
     app_confFile=Mapit_dir+'/conf/software.json'
     if ((os.path.exists(confFile))and(os.path.getsize(confFile)>0)and(args.overwrite==False)):
-        infoPrint("ERROR","%s exists. If you want to regenerate, add '--overwrite'.")
+        infoPrint("ERROR","%s exists. If you want to regenerate, add '--overwrite'."%(confFile))
     if fileExistCheck([os.path.abspath(args.genomeFasta),os.path.abspath(args.dbSNP),os.path.abspath(args.genomeAnno),args.rmsk,os.path.abspath(getattr(args, "1000Genomes")),os.path.abspath(getattr(args, "EVSEVA"))]):
         infoPrint("ERROR","Wrong input. Files NOT Found.\nAborting")
     if not ( (args.genomeAnno).endswith(".gff") or (args.genomeAnno).endswith(".gff3") ):
         infoPrint("ERROR","%s may not be in GFF/GFF3 format."%(args.genomeAnno))
     hisat2Index=args.hisat2Index if args.hisat2Index else args.genomeFasta
-    shell("%s/src/MAPIT-seq.sh Creating_conf %s %s %s %s %s %s %s %s "%(
+    shell("%s/src/MAPIT-seq.sh Creating_conf %s %s %s %s %s %s %s %s %s "%(
         Mapit_dir,args.genomeVersion,args.species,args.outpath,args.genomeFasta,args.genomeAnno,hisat2Index,args.dbSNP,args.rmsk,args.ERCC),
           log=Mapit_dir+"/conf/"+args.genomeVersion+"_%s.log"%(format(time.strftime("%Y-%m-%d_%H:%M:%S"))))
     df_seq=pd.read_csv(os.path.abspath(re.sub(r"\.gff[3]{0,1}","_exon_merge_seq.bed",args.genomeAnno)),sep='\t',header=None,names=['chrom','start','end','exonid:geneid','tt:gt','strand','length','cumsum','seq'])
@@ -185,7 +185,7 @@ def finetuning(args):
         infoPrint("ERROR","Check MarkDuplicates for %s has something wrong or not.\nAborting"%(args.sampleName+"_"+str(args.replicate)))
     else:
         infoPrint("INFO","MarkDuplicates for %s done! "%(args.sampleName+"_"+str(args.replicate)))
-        shell("gatk SplitNCigarReads -R %s -I %s_dedupped.bam -O %s_dedupped_split.bam --tmp-dir $TMPDIR"%(conf['genome']['fasta'],BAMPrefix,BAMPrefix),
+        shell("gatk SplitNCigarReads -R %s -I %s_dedupped.bam -O %s_dedupped_split.bam"%(conf['genome']['fasta'],BAMPrefix,BAMPrefix),
               log=LogPrefix+"SplitNCigarReads.log")
     if fileExistCheck([BAMPrefix+"_dedupped_split.bam"]):
         infoPrint("ERROR","Check SplitNCigarReads for %s has something wrong or not.\nAborting"%(args.sampleName+"_"+str(args.replicate)))
@@ -249,8 +249,8 @@ def callediting(args):
     df_size=pd.read_csv(conf['genome']['fasta']+".fai",sep="\t",header=None)
     add_int={}
     for i in list(set(df_intervals['index'])-set(df_intervals_new['index'])):
-        readcount=df_intervals.loc[df_intervals['index']==i,'reads']
-        size=int(df_size.loc[df_size[0]==i,1])
+        readcount=df_intervals.loc[df_intervals['index']==i,'reads'].iloc[0]
+        size=int(df_size.loc[df_size[0]==i,1].iloc[0])
         mid=int(size/2)
         add_int[i+":1-"+str(mid)]=int(readcount/2)
         add_int[i+":"+str(mid)+"-"+str(size)]=int(readcount/2)
@@ -299,14 +299,14 @@ def callediting(args):
     df_snv_anno.drop_duplicates(subset=["INDEX","ENZYME","GID"],keep="first",inplace=True)
     df_snv_anno.drop(columns=["TID"]).to_csv("%s_Edit_GE.bed"%(prefix),sep="\t",header=None,index=False)
     infoPrint("INFO","Annotating all these editing sites to repetitive elements based on RepeatMask, UCSC.")
-    shell('''bedtools intersect -a %s_Edit_GE.bed -b %s -s -loj | cut -f 1-10,14,15 | awk -v OFS="\t" '{gsub(/\./,"None",$11); gsub("-1","None",$12); print}' > %s_Edit_GE_RPE.bed'''%(
+    shell(r'''bedtools intersect -a %s_Edit_GE.bed -b %s -s -loj | cut -f 1-10,14,15 | awk -v OFS="\t" '{gsub(/\./,"None",$11); gsub("-1","None",$12); print}' > %s_Edit_GE_RPE.bed'''%(
         prefix,conf['annotation']['repeatMask'],prefix))
     df_snv_anno=pd.read_csv(prefix+"_Edit_GE_RPE.bed",sep='\t',header=None,names=['CHR','START','END',"INDEX","ENZYME",'STRAND','GID','GTYPE','TTYPE','GE','RPNAME','RPE'])
     df_seq=pd.read_csv(prefix+"_EditSeq.txt",sep="\t",header=None,names=['INDEX','SEQ'])
     df_edit=pd.merge(df_snv_anno,df_seq,left_on="INDEX",right_on="INDEX",how="inner")
     df_edit=pd.merge(df_edit,df_snv_filter.drop(columns=['#CHROM',"START","POS","ENZYME","STRAND"]),left_on="INDEX",right_on="INDEX",how="inner")
     df_edit["CHR"]=setCategory(df_edit["CHR"],["chr"+str(chrom) for chrom in list(range(1,24))+["X","Y","M"]],True)
-    infoPrint("INFO","Writing data of all editing sites with annotation. \nSee >> \033[34mAllEdit_GE_RPE_DATA.tsv\033[0m <<")
+    infoPrint("INFO","Writing data of all editing sites with annotation. See >> \033[34m%s_Edit_GE_RPE_DATA.tsv\033[0m <<"%(prefix))
     df_edit.sort_values(by=["CHR","END"]).to_csv(prefix+"_Edit_GE_RPE_DATA.tsv",sep='\t',index=False)
     df_edit_eventgb=df_edit[df_edit['GE']!="IGR"].drop_duplicates(subset=["INDEX"],keep="first").groupby(["ENZYME"])[list(filter(lambda x:x.find("_EDIT")>=0 and x.find("EDIT%")<0,df_edit.columns.tolist()))].sum().T
     df_edit_eventgb['mappedBases']=[int(subprocess.check_output("grep 'bases mapped (cigar)' %s | grep 'more accurate'"%(args.outpath+"/3-Combine_bam/"+sample[:-5].split("_")[0]+"/"+sample[:-5]+"_combine_dedupped_split_recal.stat"),shell=True,text=True).split("\t")[2]) for sample in df_edit_eventgb.index]
@@ -426,14 +426,22 @@ def calltargets_transcript(args):
     else:
         df_edit_exon_bin_gbb=pd.merge(df_edit_exon_bin_gbb,df_edit_exon_bin_gbg.apply(lambda x:stats.wilcoxon(x[args.treatName+'_EDIT%'],x[args.controlName+'_EDIT%'], alternative='greater',zero_method="zsplit"),
                                                                                                                                   axis=1, result_type="expand").rename(columns={0:"STATISTIC",1:"PVALUE"}),left_index=True,right_index=True,how="left")
-    df_edit_exon_bin_gbb["P.ADJ"]=false_discovery_control(df_edit_exon_bin_gbb['PVALUE'],method="bh")
+    
     df_edit_exon_bin_gbb["FC"]=(df_edit_exon_bin_gbg[args.treatName+'_EI']+0.1*np.median(df_edit_exon_bin_gbg[args.controlName+'_EI']))/(df_edit_exon_bin_gbg[args.controlName+'_EI']+0.1*np.median(df_edit_exon_bin_gbg[args.controlName+'_EI']))
     df_edit_exon_bin_gbb["ES"]=df_edit_exon_es['ES']
     df_edit_exon_bin_gbb["MAPITscore"]=(df_edit_exon_bin_gbg[args.treatName+'_EI'])-(df_edit_exon_bin_gbg[args.controlName+'_EI'])
-    df_gene=df_edit['GID'].drop_duplicates().str.split(":",expand=True).set_index(0)
-    df_gene.index.name="GENEID"
-    df_gene.columns=['GENESYMBOL']
-    pd.merge(df_gene,df_edit_exon_bin_gbb,left_index=True,right_index=True).sort_values(by=["PVALUE"]).to_csv(prefix+args.treatName+"/"+args.treatName+"vs"+args.controlName+"_bs"+str(args.binSize)+"_Targets_v5.tsv",sep="\t")
+    df_gene=df_edit[['GID','GTYPE']].drop_duplicates()
+    df_gene['GENEID'],df_gene['GENESYMBOL']=zip(*df_gene['GID'].apply(lambda x:x.split(":")))
+    df_gene.set_index("GENEID",inplace=True)
+    df_gene.drop(columns=["GID"])
+    exclude_df=pd.read_csv(Mapit_dir+"/data/exclude_genetype.txt",sep="\t",header=None,names=["genetype"])
+    df_gene_filtered=df_gene[~df_gene['GTYPE'].isin(set(exclude_df['genetype']))].copy()
+    df_final_res=pd.merge(df_gene,df_edit_exon_bin_gbb,left_index=True,right_index=True).sort_values(by=["PVALUE"])
+    df_final_res['P.ADJ']=np.nan
+    df_final_res.loc[list(set(df_final_res[df_final_res['Count']>3].index)&set(df_gene_filtered['GID'].apply(lambda x:x.split(":")[0]))),"P.ADJ"]=false_discovery_control(
+        df_final_res.loc[list(set(df_final_res[df_final_res['Count']>3].index)&set(df_gene_filtered['GID'].apply(lambda x:x.split(":")[0]))),'PVALUE'],method="bh")
+    infoPrint("INFO","Writing results of differential editing analysis. See >> \033[34m%s_Targets_transcript_level.tsv\033[0m <<"%(prefix+args.treatName+"/"+args.treatName+"vs"+args.controlName+"_bs"+str(args.binSize)))
+    df_final_res.to_csv(prefix+args.treatName+"/"+args.treatName+"vs"+args.controlName+"_bs"+str(args.binSize)+"_Targets_transcript_level.tsv",sep="\t")
 
 def calltargets_gene(args):
     from scipy.stats import poisson
@@ -506,9 +514,9 @@ def calltargets_gene(args):
     df_edit_gene=df_edit_gene[~((df_edit_gene[[sample+"_PASSED_Poisson" for sample in controlSamples]].sum(1)>0)&
                                 (df_edit_gene[[sample+"_PASSED_Poisson" for sample in treatSamples]].sum(1)>0))].copy()
     
-    df_edit_gene[["CHR","END","INDEX","GENEID"]+list(np.array([list(filter(lambda x:x.find(sample+"_")>=0,df_edit_gene.columns)) for sample in controlSamples+treatSamples]).flatten())].to_csv(prefix+args.treatName+"/"+args.treatName+"vs"+args.controlName+"_DATA_v6.tsv",sep="\t")
+    df_edit_gene[["CHR","END","INDEX","GENEID"]+list(np.array([list(filter(lambda x:x.find(sample+"_")>=0,df_edit_gene.columns)) for sample in controlSamples+treatSamples]).flatten())].to_csv(prefix+args.treatName+"/"+args.treatName+"vs"+args.controlName+"_DATA_genefull.tsv",sep="\t")
     
-    infoPrint("INFO","Splitting Transcripts into Bins with the Lenth of %dbp..."%(args.binSize))
+    infoPrint("INFO","Splitting genes into Bins with the Lenth of %dbp..."%(args.binSize))
     df_edit_gene['#BIN']=df_edit_gene['GEND']//args.binSize
     bindict={"INDEX":",".join}
     for sample in treatSamples + controlSamples:
@@ -534,15 +542,22 @@ def calltargets_gene(args):
     else:
         df_edit_gene_bin_gbb=pd.merge(df_edit_gene_bin_gbb,df_edit_gene_bin_gbg.apply(lambda x:stats.wilcoxon(x[args.treatName+'_EDIT%'],x[args.controlName+'_EDIT%'], alternative='greater',zero_method="zsplit"),
                                                                                                                                   axis=1, result_type="expand").rename(columns={0:"STATISTIC",1:"PVALUE"}),left_index=True,right_index=True,how="left")
-    df_edit_gene_bin_gbb["P.ADJ"]=false_discovery_control(df_edit_gene_bin_gbb['PVALUE'],method="bh")
+    
     df_edit_gene_bin_gbb["FC"]=(df_edit_gene_bin_gbg[args.treatName+'_EI']+0.1*np.median(df_edit_gene_bin_gbg[args.controlName+'_EI']))/(df_edit_gene_bin_gbg[args.controlName+'_EI']+0.1*np.median(df_edit_gene_bin_gbg[args.controlName+'_EI']))
     df_edit_gene_bin_gbb["ES"]=df_edit_gene_es['ES']
     df_edit_gene_bin_gbb["MAPITscore"]=(df_edit_gene_bin_gbg[args.treatName+'_EI'])-(df_edit_gene_bin_gbg[args.controlName+'_EI'])
-    df_gene=df_edit['GID'].drop_duplicates().str.split(":",expand=True).set_index(0)
-    df_gene.index.name="GENEID"
-    df_gene.columns=['GENESYMBOL']
-    pd.merge(df_gene,df_edit_gene_bin_gbb,left_index=True,right_index=True).sort_values(by=["PVALUE"]).to_csv(prefix+args.treatName+"/"+args.treatName+"vs"+args.controlName+"_bs"+str(args.binSize)+"_Targets_v6.tsv",sep="\t")
-    
+    df_gene2=df_edit['GID'].drop_duplicates().str.split(":",expand=True).set_index(0)
+    df_gene2.index.name="GENEID"
+    df_gene2.columns=['GENESYMBOL']
+    exclude_df=pd.read_csv(Mapit_dir+"/data/exclude_genetype.txt",sep="\t",header=None,names=["genetype"])
+    df_gene_filtered=df_gene[~df_gene['genetype'].isin(set(exclude_df["genetype"]))].copy()
+    df_final_res=pd.merge(df_gene2,df_edit_gene_bin_gbb,left_index=True,right_index=True).sort_values(by=["PVALUE"])
+    df_final_res['P.ADJ']=np.nan
+    df_final_res.loc[list(set(df_final_res[df_final_res['Count']>3].index)&set(df_gene_filtered['GID'].apply(lambda x:x.split(":")[0]))),"P.ADJ"]=false_discovery_control(
+        df_final_res.loc[list(set(df_final_res[df_final_res['Count']>3].index)&set(df_gene_filtered['GID'].apply(lambda x:x.split(":")[0]))),'PVALUE'],method="bh")
+    infoPrint("INFO","Writing results of differential editing analysis. See >> \033[34m%s_Targets_genefull_level.tsv\033[0m <<"%(prefix+args.treatName+"/"+args.treatName+"vs"+args.controlName+"_bs"+str(args.binSize)))
+    df_final_res.to_csv(prefix+args.treatName+"/"+args.treatName+"vs"+args.controlName+"_bs"+str(args.binSize)+"_Targets_genefull_level.tsv",sep="\t")
+
 def pre_sailor(args):
     conf = loadConfig(args.genomeVersion)
     app_conf = json.load(open(Mapit_dir+'/conf/software.json'))
@@ -571,8 +586,8 @@ def flare_workflow(args):
     app_conf = json.load(open(Mapit_dir+'/conf/software.json'))
     infoPrint("INFO","Begin to run FLARE workflow...")
     shell("%s/src/MAPIT-seq.sh FLARE_for_MAPIT \
-        %s %s %d %s %s %s %d %s"%(Mapit_dir, args.outpath, args.sampleName, args.replicate,
-            conf['genome']['fasta'],args.regions,args.edittype,round(args.thread/32+0.49999), app_conf["FLARE"]))
+        %s %s %d %s %s %s %d %s"%(Mapit_dir, os.path.abspath(args.outpath), args.sampleName, args.replicate,
+            os.path.abspath(conf['genome']['fasta']),os.path.abspath(args.regions),args.edittype,round(args.thread/32+0.49999), app_conf["FLARE"]))
     infoPrint("INFO","FLARE Done.")
 
 def hc_cluster(args):
@@ -584,10 +599,10 @@ def hc_cluster(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='MAPIT-seq (\33[4mM\33[0modification \33[4mA\33[0mdjacent to RNA binding \33[4mP\33[0mrotein \33[4mI\33[0mnteracting \33[4mT\33[0marget \33[4mSeq\33[0muencing) is to identify RBP target transcripts based on adjacently editing by both hADARcd and rAPOBEC. This pipeline is designed to identify RNA-editing events by hADARcd and rAPOBEC from MAPIT-seq data, and then find the find RBP binding regions with high confidence and de novo discover RBP binding motifs.\n\
+    parser = argparse.ArgumentParser(description='MAPIT-seq (\33[4mM\33[0modification \33[4mA\33[0mdded to RNA-binding \33[4mP\33[0mrotein \33[4mI\33[0mnteracting \33[4mT\33[0mranscript \33[4mSeq\33[0muencing) is to identify RBP target transcripts based on adjacently editing by both hADAR2dd and rAPOBEC1. This pipeline is designed to identify RNA-editing events by hADAR2dd and rAPOBEC1 from MAPIT-seq data, and then find the find RBP binding regions with high confidence and de novo discover RBP binding motifs.\n\
         \nDetail information is available at \33[4mhttps://github.com/WangLabPKU/Mapit-seq\33[0m.\n\
         \nAuthor: Gang Xie  gangx1e@stu.pku.edu.cn\n\
-        Version: 1.6  May 28, 2025', formatter_class=argparse.RawTextHelpFormatter)
+        Version: 1.7  July 25, 2025', formatter_class=argparse.RawTextHelpFormatter)
     subparsers = parser.add_subparsers()
 
     parser_config = subparsers.add_parser('config', help='Create Configuration File')

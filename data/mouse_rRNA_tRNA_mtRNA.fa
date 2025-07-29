@@ -2050,7 +2050,8 @@ AGCAGAGTGGCGCAGCGGAAGCGTGCTGGGCCCATAACCCAGAGGTCGATAGATCGAAAC
 CATCCTCTGCTA
 >Mus_musculus_tRNA-iMet-CAT-4-1
 AGCAGAGTGGCACAATGGAAGCGTGCTGGTCCCATAACCCAGAGGTCAATGGATTGAAAC
-CATCCTCTGCTT>ENSMUST00000082423.1 ncrna chromosome:GRCm38:MT:15356:15422:-1 gene:ENSMUSG00000064372.1 gene_biotype:Mt_tRNA transcript_biotype:Mt_tRNA gene_symbol:mt-Tp description:mitochondrially encoded tRNA proline [Source:MGI Symbol;Acc:MGI:102478]
+CATCCTCTGCTT
+>ENSMUST00000082423.1 ncrna chromosome:GRCm38:MT:15356:15422:-1 gene:ENSMUSG00000064372.1 gene_biotype:Mt_tRNA transcript_biotype:Mt_tRNA gene_symbol:mt-Tp description:mitochondrially encoded tRNA proline [Source:MGI Symbol;Acc:MGI:102478]
 CAAGAAGTAGTTTAATTAGAATACCAGCTTTGGGTGCTGGTGGTGGGGAGTAGCTCCTTC
 TTCTTGA
 >ENSMUST00000082422.1 ncrna chromosome:GRCm38:MT:15289:15355:1 gene:ENSMUSG00000064371.1 gene_biotype:Mt_tRNA transcript_biotype:Mt_tRNA gene_symbol:mt-Tt description:mitochondrially encoded tRNA threonine [Source:MGI Symbol;Acc:MGI:102473]
