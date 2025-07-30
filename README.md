@@ -249,7 +249,62 @@ perl configureHomer.pl -install hg38
 
 ### Overview
 
-<pre><code>```mermaid graph TD A[Clean reads] --> B[Mapping] %% Branch 1：GATK RNA editing detection workflow B --> B1[Finetuning] B1 --> B2[Call editing<br>(GATK RNA editing detection)] B2 --> B3[Call targets<br>(Differential editing analysis)] %% Branch 2：SAILOR + FLARE workflow B --> C1[Prepare files<br>for SAILOR] C1 --> C2[SAILOR<br>(RNA editing identification)] C2 --> C3[FLARE<br>(Editing cluster identification)] C3 --> C4[Identify high-confidence<br>edit clusters] ``` </code></pre>
+```mermaid 
+---
+config:
+  theme: 'base'
+  themeVariables:
+    primaryColor: '#25b1bbff'
+    primaryTextColor: '#fff'
+    primaryBorderColor: '#055516ff'
+    lineColor: '#bacdf1ff'
+    secondaryColor: '#006100'
+    tertiaryColor: '#fff'
+---
+graph TD;
+    A{{Clean reads}}-->B(<u>**mapping**</u>
+    Two-round uniquely mapping);
+    B-->C(<u>**finetuning**</u>
+    Fine tune alignments);
+    C-->D(<u>**callediting**</u>
+    GATK RNA editing detection);
+    D-->E(<u>**calltargets**</u>
+    Differential editing analysis to call RBP binding targets)
+    B-->F(<u>**prepare**</u>
+    Prepare files for SAILOR);
+    F-->G(<u>**SAILOR**</u>
+    RNA editing identification);
+    G-->H(<u>**FLARE**</u>
+    Edit cluster identification);
+    H-->I(<u>**hc_cluster**</u>
+    High-confidence edit cluster identification)
+    I-->J(<u>HOMER</u>
+    RBP binding motif *de novo* identification)
+    B-->K(<u>featureCounts</u>
+    Gene expression quantification)
+    K-->L(<u>DESeq2</u>
+    Differential expressed gene analysis)
+    L-->M(<u>clusterProfiler</u>
+    Functional analysis)
+    E-.->N(***RBP-RNA interactome
+    and transcriptome
+    co-profiling***)
+    J-.->N
+    M-.->N
+style A fill: #7cb8c7ff,stroke:#333,stroke-width:2px;
+style C fill: #6e9beeff,stroke:#333,stroke-width:2px;
+style D fill: #6e9beeff,stroke:#333,stroke-width:2px;
+style E fill: #6e9beeff,stroke:#333,stroke-width:2px;
+style F fill: #56caa4ff,stroke:#333,stroke-width:2px;
+style G fill: #56caa4ff,stroke:#333,stroke-width:2px;
+style H fill: #56caa4ff,stroke:#333,stroke-width:2px;
+style I fill: #56caa4ff,stroke:#333,stroke-width:2px;
+style J fill: #56caa4ff,stroke:#333,stroke-width:2px;
+style K fill: #a0ca69ff,stroke:#333,stroke-width:2px;
+style L fill: #a0ca69ff,stroke:#333,stroke-width:2px;
+style M fill: #a0ca69ff,stroke:#333,stroke-width:2px;
+style N fill: #b1a054ff,stroke:#333,stroke-width:2px;
+```
 
 ### Mapping
 
