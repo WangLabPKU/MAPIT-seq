@@ -1,25 +1,25 @@
-# MAPIT-seq Pipeline
+# :star2: MAPIT-seq Pipeline
 
-Author: **Gang Xie**, PKU-THU-NIBS Joint Graduate Program, Academy for Advanced Interdisciplinary Studies, Peking University, Beijing, China
+:speech_balloon: Author: **Gang Xie**, PKU-THU-NIBS Joint Graduate Program, Academy for Advanced Interdisciplinary Studies, Peking University, Beijing, China
 
-Email: **gangx1e@stu.pku.edu.cn**
+:e-mail: Email: **gangx1e@stu.pku.edu.cn**
 
-Date: July 25, 2025
+:date: Date: July 25th, 2025
 
-Version: 1.7
+:white_check_mark: Version: 1.7
 
 ----
 
-MAPIT-seq (**M**odification **A**dded to RNA-binding **P**rotein **I**nteracting **T**ranscript **Seq**uencing) is to identify RBP target transcripts based on adjacently editing by both hADAR2dd and rAPOBEC1. This pipeline is designed to identify RNA-editing events by hADAR2dd and rAPOBEC1 from MAPIT-seq data, and then find the find RBP binding regions with high confidence and *de novo* discover RBP binding motifs.
+MAPIT-seq (**M**odification **A**dded to RNA-binding **P**rotein **I**nteracting **T**ranscript **Seq**uencing) enables the identification RNA-binding protein (RBP) target transcripts by detecting adjacent RNA editing events introduced by both hADAR2dd and rAPOBEC1. This approach allows for the **simultaneous profiling** of **RBP–RNA interactions** and the **transcriptome** in tissues and single cells. The MAPIT-seq pipeline is designed to detect RNA editing events from hADAR2dd and rAPOBEC1, identify RBP targets, pinpoint high-confidence RBP-binding regions and *de novo* discover RBP-binding motifs.
 
-## Cite us
+## :round_pushpin: Cite us
 
 If you found this pipeline useful in your work, please cite our paper:
-```
-Cheng, Q.-X.#, Xie, G.#, Zhang, X., Wang, J., Ding, S., Wu, Y.-X., Shi, M., Duan, F.-F., Wan, Z.-L., Wei, J.-J., Xiao, J., Wang, Y. Co-profiling of transcriptome and in situ RNA-protein interactions in single cells and tissues. (2025, Accepted). https://doi.org/10.1038/s41592-025-02774-4
-```
 
-## Install
+> Cheng, Q.-X.#, Xie, G.#, Zhang, X., Wang, J., Ding, S., Wu, Y.-X., Shi, M., Duan, F.-F., Wan, Z.-L., Wei, J.-J., Xiao, J., Wang, Y. Co-profiling of transcriptome and in situ RNA-protein interactions in single cells and tissues. ***Nature Methods*** (2025, Accepted). https://doi.org/10.1038/s41592-025-02774-4
+
+
+## :hammer: Install
 
 All softwares in our pipeline are available in [conda](https://docs.conda.io/en/latest/miniconda.html). We recommend you to install these softwares via conda:
 
@@ -51,9 +51,9 @@ EOF
 chmod +x $CONDA_PREFIX/etc/conda/activate.d/activate-mapit.sh $CONDA_PREFIX/etc/conda/deactivate.d/deactivate-mapit.sh
 ```
 
-## Install MAPIT dependencies 
+### Install MAPIT dependencies 
 
-### REDItools2
+#### REDItools2
 ```
 cd ..
 git clone https://github.com/BioinfoUNIBA/REDItools2 
@@ -62,7 +62,7 @@ cd REDItools2
 pip install -r requirements.txt
 ```
 
-### FLARE
+#### SAILOR and FLARE
 ```
 cd ..
 git clone https://github.com/YeoLab/FLARE
@@ -71,7 +71,7 @@ pip install deeptools
 ```
 
 
-## Configuration
+## :wrench:Configuration
 
 Prepare these files beforehand:
 
@@ -109,7 +109,7 @@ wget https://assets.thermofisher.cn/TFS-Assets/LSG/manuals/ERCC92.zip
 unzip ERCC92.zip
 ```
 
-We recommend retaining only autosomal, allosomal (sex chromosomes), and mitochondrial sequences—i.e., entries with the `"chr"` prefix—in both FASTA and GTF/GFF annotation files.
+:small_red_triangle: We recommend retaining only autosomal, allosomal (sex chromosomes), and mitochondrial sequences—i.e., entries with the `"chr"` prefix—in both FASTA and GTF/GFF annotation files.
 
 ### Download known variants annotation: [dbSNP](http://www.ncbi.nlm.nih.gov/SNP/), [1000Genome](https://www.internationalgenome.org/), [EVS](http://evs.gs.washington.edu/EVS/) and [EVA](https://www.ebi.ac.uk/eva)
 
@@ -117,8 +117,9 @@ We recommend retaining only autosomal, allosomal (sex chromosomes), and mitochon
 #### dbSNP
 
 ```
-mkdir "$your_ref_path"/"$genomeVersion"_SNP
-cd "$your_ref_path"/"$genomeVersion"_SNP
+genomeVersion=GRCh38
+mkdir "your_ref_path"/${genomeVersion}_SNP
+cd "your_ref_path"/${genomeVersion}_SNP
 
 # human (hg38/GRCh38)
 wget https://ftp.ncbi.nih.gov/snp/organisms/human_9606_b151_GRCh38p7/VCF/GATK/All_20180418.vcf.gz # download data in VCF/GATK fold; column 1 starts with "chr"
@@ -167,7 +168,7 @@ for chr in ${chroms[@]}; do touch void_split_chr/${chr}; done
 gzip void_split_chr/chr*
 ```
 
-**Important**: Ensure all chromosome names in the `*_split_chr` directories begin with the `"chr"` prefix. If not, manually prepend `"chr"` to maintain naming consistency across datasets.
+:bangbang: **Important**: Ensure all chromosome names in the `*_split_chr` directories begin with the `"chr"` prefix. If not, manually prepend `"chr"` to maintain naming consistency across datasets.
 
 #### Create configuration file
 
@@ -248,7 +249,7 @@ In an effort to make sure things are standardized for analysis, HOMER organizes 
 perl configureHomer.pl -install hg38
 ```
 
-## Usage
+## :large_blue_diamond:Usage
 
 ### Overview
 
@@ -339,12 +340,17 @@ style A2 fill: #ffffff16,stroke:#333,stroke-width:2px;
 style A3 fill: #ffffff16,stroke:#333,stroke-width:2px;
 ```
 
+This is a dual-omics analysis framework for MAPIT-seq data that enables the simultaneous interrogation of **RBP–RNA interactions** and **gene expression** profiles. The example codes provided demonstrate a bulk MAPIT-seq workflow focused on RBP target identification. For the gene level transcriptome analysis component, please refer to standard RNA-seq analysis procedures (external tools and workflows are typically used, e.g., [featureCounts](https://subread.sourceforge.net/), [DESeq2](https://bioconductor.org/packages/devel/bioc/vignettes/DESeq2/inst/doc/DESeq2.html), and [clusterProfiler](https://bioconductor.org/packages/release/bioc/html/clusterProfiler.html)).
+
+In addition to the bulk workflow, we also provide customized pipelines for single-cell and long-read MAPIT-seq data. These can be found in the [`pipeline/`](./pipeline/) directory.
+
+
 ### Mapping
 
 The MAPIT-seq pipeline consists of five main steps. The first step combines abundant RNA filtering and read alignment:
 
 ```
-Mapit mapping -v GRCh38 --fq R1.fq.gz  --fq2 R2.fq.gz  --rna-strandness FR -n EN -r 1  -o Mapit_result -t 40
+Mapit mapping -v GRCh38 --fq R1.fq.gz  --fq2 R2.fq.gz  --rna-strandness FR -n EN -r 1  -o Mapit_result -t THREAD
 ```
 
 - Options:
@@ -486,7 +492,7 @@ Mapit calltargets -v GRCh38 -i "output_path"/Mapit_result/6-Edit_calling/RBP/RBP
 1. Prepare files for SAILOR workflow.
 
 ```
-Mapit prepare -v $genomeVersion -n ${samplename} -r ${replicate} -o ${outpath}
+Mapit prepare -v GRCh38 -n EN -r 1 -o "output_path"/Mapit_result
 ```
 
 - Options (see `finetuning` step)
@@ -494,7 +500,7 @@ Mapit prepare -v $genomeVersion -n ${samplename} -r ${replicate} -o ${outpath}
 2. Run SAILOR workflow
 
 ```
-Mapit SAILOR -v $genomeVersion -n ${samplename} -r ${replicate} -c ${coverage} -o ${outpath} -t ${threads}
+Mapit SAILOR -v GRCh38 -n EN -r 1 -c coverage -o "output_path"/Mapit_result -t THREAD
 ```
 
 - Options:
@@ -522,7 +528,7 @@ Mapit SAILOR -v $genomeVersion -n ${samplename} -r ${replicate} -c ${coverage} -
 3. Run FLARE workflow to identify edit clusters
 
 ```
-Mapit FLARE -v $genomeVersion -e {AG,CT} -n ${samplename} -r ${replicate} --regions ${regions} -o ${outpath} -t ${threads}
+Mapit FLARE -v GRCh38 -e AG -n EN -r 1 --regions <genome_name>_regions -o "output_path"/Mapit_result -t THREAD
 ```
 
 - Options:
@@ -538,7 +544,7 @@ Mapit FLARE -v $genomeVersion -e {AG,CT} -n ${samplename} -r ${replicate} --regi
   `-r REPLICATE, --replicate REPLICATE`
                         Replicate ID used as the second prefix in output files
 
-  `--regions REGIONS`     FLARE configuration directory of files for regions of the genome
+  `--regions REGIONS`     FLARE configuration directory of files for regions of the genome, see [FLARE configuration part](#create-configuration-file)
 
   `-o OUTPATH, --outpath OUTPATH`
                         Output directory (default: "./Mapit_result"). Must match the path used in the above steps
@@ -552,7 +558,7 @@ Mapit FLARE -v $genomeVersion -e {AG,CT} -n ${samplename} -r ${replicate} --regi
 ### Identify MAPIT high-confidence edit clusters
 
 ```
-Mapit hc_cluster -v $genomeVersion -n ${samplename} -o ${outpath} -s ${sloplength}
+Mapit hc_cluster -v GRCh38 -n EN -o "output_path"/Mapit_result -s 150
 ```
 
 - Options:
@@ -571,10 +577,12 @@ Mapit hc_cluster -v $genomeVersion -n ${samplename} -o ${outpath} -s ${sloplengt
   `-s SLOPLENGTH, --sloplength SLOPLENGTH`
                         Length of High-confidence clusters expanded for up- and down-stream sides
 
-## Result structure:
+## :mag_right: Result structure:
 
 After completing all analysis steps, the `Mapit_result/` directory will contain multiple output files and subdirectories corresponding to each processing stage. For a detailed description of the output structure, please refer to the [`structure.md`](https://github.com/wanglabpku/MAPIT-seq/blob/main/example/structure.md)  file in the MAPIT-seq repository.
                         
-## License
+## :page_facing_up: License
 
-Copyright (C) 2025 WangLabPKU.
+See the [LICENSE](./LICENSE) file for more details. 
+
+© 2025 WangLabPKU.
