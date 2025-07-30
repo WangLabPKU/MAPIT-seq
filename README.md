@@ -269,9 +269,9 @@ graph TD;
   Two-round uniquely mapping);
   B-->C(**finetuning**
   Fine tune alignments);
-  C-->D(**callediting**
+  C-->X1[ ]-->D(**callediting**
   GATK RNA editing detection);
-  D-->E(**calltargets**
+  D-->X2[ ]-->E(**calltargets**
   Differential editing analysis to call RBP binding targets)
   B-->F(**prepare**
   Prepare files for SAILOR);
@@ -285,13 +285,15 @@ graph TD;
   RBP binding motif *de novo* identification)
   B-->K(featureCounts
   Gene expression quantification)
-  K-->L(DESeq2
+  K-->X3[ ]-->L(DESeq2
   Differential expressed gene analysis)
-  L-->M(clusterProfiler
+  L-->X4[ ]-->M(clusterProfiler
   Functional analysis)
 subgraph A1[Transcript/gene level]
   C
+  X1
   D
+  X2
   E
 end
 subgraph A2[RBP binding site level]
@@ -303,15 +305,17 @@ subgraph A2[RBP binding site level]
 end
 subgraph A3[Expression level]
   K
+  X3
   L
+  X4
   M
 end
   N(***RBP-RNA interactome
   and transcriptome
   co-profiling***)
-  A1-.->N
-  A2-.->N
-  A3-.->N
+  E-.->N
+  J-.->N
+  M-.->N
 
 style A fill: #7cb8c7ff,stroke:#333,stroke-width:2px;
 style C fill: #6e9beeff,stroke:#333,stroke-width:2px;
@@ -326,9 +330,13 @@ style K fill: #a0ca69ff,stroke:#333,stroke-width:2px;
 style L fill: #a0ca69ff,stroke:#333,stroke-width:2px;
 style M fill: #a0ca69ff,stroke:#333,stroke-width:2px;
 style N fill: #b1a054ff,stroke:#333,stroke-width:2px;
-style A1 fill: #ffffff,stroke:#333,stroke-width:2px;
-style A2 fill: #ffffff,stroke:#333,stroke-width:2px;
-style A3 fill: #ffffff,stroke:#333,stroke-width:2px;
+style X1 fill: #ffffff00,stroke:#ffffff00,stroke-width:2px;
+style X2 fill: #ffffff00,stroke:#ffffff00,stroke-width:2px;
+style X3 fill: #ffffff00,stroke:#ffffff00,stroke-width:2px;
+style X4 fill: #ffffff00,stroke:#ffffff00,stroke-width:2px;
+style A1 fill: #ffffff16,stroke:#333,stroke-width:2px;
+style A2 fill: #ffffff16,stroke:#333,stroke-width:2px;
+style A3 fill: #ffffff16,stroke:#333,stroke-width:2px;
 ```
 
 ### Mapping
