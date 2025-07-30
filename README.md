@@ -221,9 +221,12 @@ Mapit config --genomeVersion GRCh38 \
 
   `--hisat2Index HISAT2INDEX`
                         (Optional) Path to pre-built HISAT2 index
+
   `--Reditools REDITOOLS`
                         Directory of RediTools2.0 software
+
   `--FLARE FLARE`         Directory of FLARE software
+
   `--overwrite`           Overwrite existing configuration file if present.
 
 This command will generate a `GenomeVersion.json` configuration file under the `conf` directory of the specified output path, which is required for downstream MAPIT-seq analysis.
@@ -262,35 +265,54 @@ config:
     tertiaryColor: '#fff'
 ---
 graph TD;
-    A{{Clean reads}}-->B(<u>**mapping**</u>
-    Two-round uniquely mapping);
-    B-->C(<u>**finetuning**</u>
-    Fine tune alignments);
-    C-->D(<u>**callediting**</u>
-    GATK RNA editing detection);
-    D-->E(<u>**calltargets**</u>
-    Differential editing analysis to call RBP binding targets)
-    B-->F(<u>**prepare**</u>
-    Prepare files for SAILOR);
-    F-->G(<u>**SAILOR**</u>
-    RNA editing identification);
-    G-->H(<u>**FLARE**</u>
-    Edit cluster identification);
-    H-->I(<u>**hc_cluster**</u>
-    High-confidence edit cluster identification)
-    I-->J(<u>HOMER</u>
-    RBP binding motif *de novo* identification)
-    B-->K(<u>featureCounts</u>
-    Gene expression quantification)
-    K-->L(<u>DESeq2</u>
-    Differential expressed gene analysis)
-    L-->M(<u>clusterProfiler</u>
-    Functional analysis)
-    E-.->N(***RBP-RNA interactome
-    and transcriptome
-    co-profiling***)
-    J-.->N
-    M-.->N
+  A{{Clean reads}}-->B(**mapping**
+  Two-round uniquely mapping);
+  B-->C(**finetuning**
+  Fine tune alignments);
+  C-->D(**callediting**
+  GATK RNA editing detection);
+  D-->E(**calltargets**
+  Differential editing analysis to call RBP binding targets)
+  B-->F(**prepare**
+  Prepare files for SAILOR);
+  F-->G(**SAILOR**
+  RNA editing identification);
+  G-->H(**FLARE**
+  Edit cluster identification);
+  H-->I(**hc_cluster**
+  High-confidence edit cluster identification)
+  I-->J(HOMER
+  RBP binding motif *de novo* identification)
+  B-->K(featureCounts
+  Gene expression quantification)
+  K-->L(DESeq2
+  Differential expressed gene analysis)
+  L-->M(clusterProfiler
+  Functional analysis)
+subgraph A1[Transcript/gene level]
+  C
+  D
+  E
+end
+subgraph A2[RBP binding site level]
+  F
+  G
+  H
+  I
+  J
+end
+subgraph A3[Expression level]
+  K
+  L
+  M
+end
+  N(***RBP-RNA interactome
+  and transcriptome
+  co-profiling***)
+  A1-.->N
+  A2-.->N
+  A3-.->N
+
 style A fill: #7cb8c7ff,stroke:#333,stroke-width:2px;
 style C fill: #6e9beeff,stroke:#333,stroke-width:2px;
 style D fill: #6e9beeff,stroke:#333,stroke-width:2px;
@@ -304,6 +326,9 @@ style K fill: #a0ca69ff,stroke:#333,stroke-width:2px;
 style L fill: #a0ca69ff,stroke:#333,stroke-width:2px;
 style M fill: #a0ca69ff,stroke:#333,stroke-width:2px;
 style N fill: #b1a054ff,stroke:#333,stroke-width:2px;
+style A1 fill: #ffffff,stroke:#333,stroke-width:2px;
+style A2 fill: #ffffff,stroke:#333,stroke-width:2px;
+style A3 fill: #ffffff,stroke:#333,stroke-width:2px;
 ```
 
 ### Mapping
