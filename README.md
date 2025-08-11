@@ -1,6 +1,8 @@
 # :star2: MAPIT-seq Pipeline
 
-:speech_balloon: Author: **Gang Xie**, PKU-THU-NIBS Joint Graduate Program, Academy for Advanced Interdisciplinary Studies, Peking University, Beijing, China
+:bust_in_silhouette: Author: **Gang Xie**, PhD candidate
+
+:school: Affiliation: PKU-THU-NIBS Joint Graduate Program, Academy for Advanced Interdisciplinary Studies, Peking University, Beijing, China
 
 :e-mail: Email: **gangx1e@stu.pku.edu.cn**
 
@@ -12,11 +14,13 @@
 
 MAPIT-seq (**M**odification **A**dded to RNA-binding **P**rotein **I**nteracting **T**ranscript **Seq**uencing) enables the identification RNA-binding protein (RBP) target transcripts by detecting adjacent RNA editing events introduced by both hADAR2dd and rAPOBEC1. This approach allows for the **simultaneous profiling** of **RBP–RNA interactions** and the **transcriptome** in tissues and single cells. The MAPIT-seq pipeline is designed to detect RNA editing events from hADAR2dd and rAPOBEC1, identify RBP targets, pinpoint high-confidence RBP-binding regions and *de novo* discover RBP-binding motifs.
 
+![MAPIT-seq workflow](workflow.jpg)
+
 ## :round_pushpin: Cite us
 
 If you found this pipeline useful in your work, please cite our paper:
 
-> Cheng, Q.-X.#, Xie, G.#, Zhang, X., Wang, J., Ding, S., Wu, Y.-X., Shi, M., Duan, F.-F., Wan, Z.-L., Wei, J.-J., Xiao, J., Wang, Y. Co-profiling of transcriptome and in situ RNA-protein interactions in single cells and tissues. ***Nature Methods*** (2025, Accepted). https://doi.org/10.1038/s41592-025-02774-4
+> Cheng, Q.-X.#, Xie, G.#, Zhang, X., Wang, J., Ding, S., Wu, Y.-X., Shi, M., Duan, F.-F., Wan, Z.-L., Wei, J.-J., Xiao, J., Wang, Y. Co-profiling of transcriptome and in situ RNA-protein interactions in single cells and tissues. ***Nature Methods*** (2025). https://doi.org/10.1038/s41592-025-02774-4
 
 
 ## :hammer: Install
@@ -268,13 +272,15 @@ config:
 graph TD;
   A{{Clean reads}}-->B(**mapping**
   Two-round uniquely mapping);
-  B-->C(**finetuning**
+  B-->A1
+  C(**finetuning**
   Fine tune alignments);
-  C-->X1[ ]-->D(**callediting**
+  C-->D(**callediting**
   GATK RNA editing detection);
-  D-->X2[ ]-->E(**calltargets**
+  D-->E(**calltargets**
   Differential editing analysis to call RBP binding targets)
-  B-->F(**prepare**
+  B-->A2
+  F(**prepare**
   Prepare files for SAILOR);
   F-->G(**SAILOR**
   RNA editing identification);
@@ -284,20 +290,19 @@ graph TD;
   High-confidence edit cluster identification)
   I-->J(HOMER
   RBP binding motif *de novo* identification)
-  B-->K(featureCounts
+  B-->A3
+  K(featureCounts
   Gene expression quantification)
-  K-->X3[ ]-->L(DESeq2
+  K-->L(DESeq2
   Differential expressed gene analysis)
-  L-->X4[ ]-->M(clusterProfiler
+  L-->M(clusterProfiler
   Functional analysis)
-subgraph A1[Transcript/gene level]
+subgraph A1[Transcript binding level]
   C
-  X1
   D
-  X2
   E
 end
-subgraph A2[RBP binding site level]
+subgraph A2[RBP-binding site level]
   F
   G
   H
@@ -306,38 +311,33 @@ subgraph A2[RBP binding site level]
 end
 subgraph A3[Expression level]
   K
-  X3
   L
-  X4
   M
 end
   N(***RBP-RNA interactome
   and transcriptome
   co-profiling***)
-  E-.->N
-  J-.->N
-  M-.->N
+  A1-.->N
+  A2-.->N
+  A3-.->N
 
-style A fill: #7cb8c7ff,stroke:#333,stroke-width:2px;
-style C fill: #6e9beeff,stroke:#333,stroke-width:2px;
-style D fill: #6e9beeff,stroke:#333,stroke-width:2px;
-style E fill: #6e9beeff,stroke:#333,stroke-width:2px;
-style F fill: #56caa4ff,stroke:#333,stroke-width:2px;
-style G fill: #56caa4ff,stroke:#333,stroke-width:2px;
-style H fill: #56caa4ff,stroke:#333,stroke-width:2px;
-style I fill: #56caa4ff,stroke:#333,stroke-width:2px;
-style J fill: #56caa4ff,stroke:#333,stroke-width:2px;
-style K fill: #a0ca69ff,stroke:#333,stroke-width:2px;
-style L fill: #a0ca69ff,stroke:#333,stroke-width:2px;
-style M fill: #a0ca69ff,stroke:#333,stroke-width:2px;
-style N fill: #b1a054ff,stroke:#333,stroke-width:2px;
-style X1 fill: #ffffff00,stroke:#ffffff00,stroke-width:2px;
-style X2 fill: #ffffff00,stroke:#ffffff00,stroke-width:2px;
-style X3 fill: #ffffff00,stroke:#ffffff00,stroke-width:2px;
-style X4 fill: #ffffff00,stroke:#ffffff00,stroke-width:2px;
-style A1 fill: #ffffff16,stroke:#333,stroke-width:2px;
-style A2 fill: #ffffff16,stroke:#333,stroke-width:2px;
-style A3 fill: #ffffff16,stroke:#333,stroke-width:2px;
+style A fill: #7cb8c7ff,stroke:#fff,stroke-width:2px;
+style B stroke:#fff,stroke-width:2px;
+style C fill: #6e9beeff,stroke:#fff,stroke-width:2px;
+style D fill: #6e9beeff,stroke:#fff,stroke-width:2px;
+style E fill: #6e9beeff,stroke:#fff,stroke-width:2px;
+style F fill: #56caa4ff,stroke:#fff,stroke-width:2px;
+style G fill: #56caa4ff,stroke:#fff,stroke-width:2px;
+style H fill: #56caa4ff,stroke:#fff,stroke-width:2px;
+style I fill: #56caa4ff,stroke:#fff,stroke-width:2px;
+style J fill: #56caa4ff,stroke:#fff,stroke-width:2px;
+style K fill: #a0ca69ff,stroke:#fff,stroke-width:2px;
+style L fill: #a0ca69ff,stroke:#fff,stroke-width:2px;
+style M fill: #a0ca69ff,stroke:#fff,stroke-width:2px;
+style N fill: #b1a054ff,stroke:#fff,stroke-width:2px;
+style A1 fill: #ffffff16,stroke:#bbb,stroke-width:2px;
+style A2 fill: #ffffff16,stroke:#bbb,stroke-width:2px;
+style A3 fill: #ffffff16,stroke:#bbb,stroke-width:2px;
 ```
 
 This is a dual-omics analysis framework for MAPIT-seq data that enables the simultaneous interrogation of **RBP–RNA interactions** and **gene expression** profiles. The example codes provided demonstrate a bulk MAPIT-seq workflow focused on RBP target identification. For the gene level transcriptome analysis component, please refer to standard RNA-seq analysis procedures (external tools and workflows are typically used, e.g., [featureCounts](https://subread.sourceforge.net/), [DESeq2](https://bioconductor.org/packages/devel/bioc/vignettes/DESeq2/inst/doc/DESeq2.html), and [clusterProfiler](https://bioconductor.org/packages/release/bioc/html/clusterProfiler.html)).
