@@ -141,7 +141,18 @@ tar -xvf ESP6500SI-V2-SSA137.GRCh38-liftover.snps_indels.vcf.tar.gz
 for i in {1..22} X Y; do
 awk '{if(substr($1, 1, 1) == "#"){print $0}else if((length($4) == 1) && (length($5) == 1)) {gsub("MT","M");{if($1 ~ "chr") print $0; else print "chr"$0 }}}' ESP6500SI-V2-SSA137.GRCh38-liftover.chr${i}.snps_indels.vcf | gzip > EVS_split_chr/chr${i}.gz
 done
+```
 
+:bangbang:  The original database link is currently inaccessible. You may download the dataset using the following command and then unzip it directly:
+
+```
+# human (hg38/GRCh38)
+wget -O EVS_split_chr.zip "https://zenodo.org/records/17089899/files/EVS_split_chr.zip?download=1"
+unzip EVS_split_chr.zip
+```
+
+
+```
 # mouse (mm10/GRCm38)
 wget http://ftp.ebi.ac.uk/pub/databases/eva/rs_releases/release_3/by_species/mus_musculus/GRCm38.p4/GCA_000001635.6_current_ids.vcf.gz
 mkdir EVA_split_chr
@@ -298,11 +309,13 @@ graph TD;
   L-->M(clusterProfiler
   Functional analysis)
 subgraph A1[Transcript binding level]
+  direction TB
   C
   D
   E
 end
 subgraph A2[RBP-binding site level]
+  direction TB
   F
   G
   H
@@ -310,6 +323,7 @@ subgraph A2[RBP-binding site level]
   J
 end
 subgraph A3[Expression level]
+  direction TB
   K
   L
   M
@@ -577,7 +591,7 @@ Mapit hc_cluster -v GRCh38 -n EN -o "output_path"/Mapit_result -s 150
   `-s SLOPLENGTH, --sloplength SLOPLENGTH`
                         Length of High-confidence clusters expanded for up- and down-stream sides
 
-## :mag_right: Result structure:
+## :mag_right: Result structure
 
 After completing all analysis steps, the `Mapit_result/` directory will contain multiple output files and subdirectories corresponding to each processing stage. For a detailed description of the output structure, please refer to the [`structure.md`](https://github.com/wanglabpku/MAPIT-seq/blob/main/example/structure.md)  file in the MAPIT-seq repository.
                         
