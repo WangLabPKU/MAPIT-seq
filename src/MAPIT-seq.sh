@@ -73,7 +73,7 @@ Creating_conf(){
         rm -rf ${annotation_path}/tmp
     fi
     if [[ ! -f ${gencode_gff3%.*}_exon_ncRNA_merge.bed ]]; then
-        geneList=($(grep -v "protein_coding" ${gencode_gff3%.*}_exon.bed  | awk '{split($4,a,":");print a[2]}'  | sort | uniq ))
+        geneList=($(grep -v "protein_coding" | grep -v "intron" | ${gencode_gff3%.*}_exon.bed  | awk '{split($4,a,":");print a[2]}'  | sort | uniq ))
         mkdir -p ${annotation_path}/tmp
         for gene in ${geneList[@]}; do
         read -u3;     
