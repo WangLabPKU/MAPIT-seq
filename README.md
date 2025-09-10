@@ -199,7 +199,7 @@ Mapit config --genomeVersion GRCh38 \
              --genomeAnno "full_path"/gencode.v40.chr_patch_hapl_scaff.annotation.gff3 \
              --rmsk "full_path"/rmsk.txt \
              --dbSNP "full_path"/GRCh38_SNP/All_20180418.vcf.gz \
-             --1000genomes "full_path"/GRCh38_SNP/1000genomes_split_chr \
+             --1000Genomes "full_path"/GRCh38_SNP/1000genomes_split_chr \
              --EVSEVA "full_path"/GRCh38_SNP/EVS_split_chr \
              --Reditools "full_path"/Directory_of_RediTools2.0_software \
              --FLARE "full_path"/Directory_of_FLARE_software
