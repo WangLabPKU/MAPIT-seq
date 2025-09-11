@@ -71,7 +71,7 @@ pip install -r requirements.txt
 cd ..
 git clone https://github.com/YeoLab/FLARE
 conda install snakemake -c bioconda -c conda-forge
-pip install deeptools
+pip install deeptools gffutils pyfaidx Bio
 ```
 
 
