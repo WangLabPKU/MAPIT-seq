@@ -123,7 +123,7 @@ def config(args):
             "ERCCIndex": os.path.abspath(args.ERCC)
             },
         "SNP": {
-            "dbSNPAll": os.path.abspath(args.dbSNP),
+            "dbSNPAll": os.path.abspath(args.outpath+"/"+args.genomeVersion+"_SNP/dbSNP_all_SNP.vcf"),
             "dbSNPSplit": os.path.abspath(args.outpath+"/"+args.genomeVersion+"_SNP/dbSNP_split_chr"),
             "1000GenomeSplit": os.path.abspath(getattr(args, "1000Genomes")),
             "EVSEVASplit": os.path.abspath(getattr(args, "EVSEVA"))
