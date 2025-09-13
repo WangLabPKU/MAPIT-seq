@@ -37,6 +37,8 @@ chmod +x Mapit src/MAPIT-seq.sh bedGraphToBigWig
 
 ### Optional: Add `Mapit` to your conda environment PATH
 
+`/home/gangx/apps/Mapit-seq` needs to be replaced with your `MAPIT-seq` path.
+
 ```
 conda activate Mapit-seq
 mkdir -p $CONDA_PREFIX/etc/conda/activate.d
