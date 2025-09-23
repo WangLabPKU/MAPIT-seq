@@ -68,6 +68,16 @@ cd REDItools2
 pip install -r requirements.txt
 ```
 
+:bangbang: **Modifications required for REDItools2 scripts** :bangbang:
+
+Please apply the following changes before running the pipeline:
+
+- Add `from functools import reduce` at line 17 in `src/cineca/parallel_reditools.py`
+- Replace line 573 in `src/cineca/parallel_reditools.py` with:  
+  `keys = list(chromosomes.keys())`
+- In `src/cineca/reditools.py`, replace `sys.maxint` (line 817) with `sys.maxsize`
+- In `src/cineca/reditools.py`, replace `"w"` (line 912) with `"wt"`
+
 #### SAILOR and FLARE
 ```
 cd ..
