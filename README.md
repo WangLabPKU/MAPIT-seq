@@ -86,6 +86,14 @@ conda install snakemake -c bioconda -c conda-forge
 pip install deeptools gffutils pyfaidx Bio
 ```
 
+:bangbang: **Modifications required for FLARE scripts** :bangbang:
+
+- Add these codes at line 391 in `workflow_FLARE/scripts/calculate_edit_c_for_regions.py`
+
+```
+    if new_region_count == 0:
+        return pd.DataFrame(columns=['region_id', 'chrom', 'start', 'end', 'strand', 'subregion', 'region', 'gene'])
+```
 
 ## :wrench:Configuration
 
@@ -125,7 +133,7 @@ wget https://assets.thermofisher.cn/TFS-Assets/LSG/manuals/ERCC92.zip
 unzip ERCC92.zip
 ```
 
-:small_red_triangle: We recommend retaining only autosomal, allosomal (sex chromosomes), and mitochondrial sequences—i.e., entries with the `"chr"` prefix—in both FASTA and GTF/GFF annotation files.
+:bangbang: We highly recommend retaining only autosomal, allosomal (sex chromosomes), and mitochondrial sequences—i.e., entries with the `"chr"` prefix—in both FASTA and GTF/GFF annotation files. :bangbang:
 
 ### Download known variants annotation: [dbSNP](http://www.ncbi.nlm.nih.gov/SNP/), [1000Genome](https://www.internationalgenome.org/), [EVS](http://evs.gs.washington.edu/EVS/) and [EVA](https://www.ebi.ac.uk/eva)
 
@@ -204,11 +212,11 @@ gzip void_split_chr/chr*
 After downloading the genome sequence (`.fasta`), genome annotations (`.gff3`), RepeatMasker annotations, and known SNP datasets split by chromosome, you can run the following command to generate the configuration file. This step includes building the genome sequence index, extracting gene element annotations, and creating chromosome-split dbSNP VCF files.
 ```
 Mapit config --genomeVersion GRCh38 \
-             --genomeFasta "full_path"/GRCh38.p13.genome.fa \
+             --genomeFasta "full_path"/GRCh38.p13.genome.chr.fa \
              --ERCC "full_path"/"ERCC.fa" \
              --species human \
              --outpath "full_path" \
-             --genomeAnno "full_path"/gencode.v40.chr_patch_hapl_scaff.annotation.gff3 \
+             --genomeAnno "full_path"/gencode.v40.chr.annotation.gff3 \
              --rmsk "full_path"/rmsk.txt \
              --dbSNP "full_path"/GRCh38_SNP/All_20180418.vcf.gz \
              --1000Genomes "full_path"/GRCh38_SNP/1000genomes_split_chr \
