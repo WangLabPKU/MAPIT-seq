@@ -4,7 +4,7 @@
 
 :school: Affiliation: PKU-THU-NIBS Joint Graduate Program, Academy for Advanced Interdisciplinary Studies, Peking University, Beijing, China
 
-:e-mail: Email: **gangx1e@stu.pku.edu.cn**
+:e-mail: Email: **gangx1e@pku.edu.cn**
 
 :date: Date: July 25th, 2025
 
